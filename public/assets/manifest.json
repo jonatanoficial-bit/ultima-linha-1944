@@ -3,5 +3,9 @@
   "source": "VALE GAMES | ÚLTIMA LINHA — 1944 | BÍBLIA MESTRE CODEX v2.0",
   "approval": "Arte cinematográfica aprovada no catálogo 27/28; não usar como fotografia documental ou sprite ortogonal.",
   "count": 45,
-  "families": ["personnel", "vehicles", "air", "naval"]
+  "families": ["personnel", "vehicles", "air", "naval"],
+  "cinematicBackgrounds": {
+    "count": 3,
+    "source": "Cenários originais gerados para a interface em 2026-10-27; são ambientes imersivos, não arte canônica de personagem, equipamento ou evento histórico."
+  }
 }

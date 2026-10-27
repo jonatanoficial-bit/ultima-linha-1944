@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { getMission } from "../content/missions";
+import { supportById } from "../content/supports";
 import { createInitialState, reduce } from "./engine";
+import { createCommandProfile, settleMission } from "./progression";
 
 const mission = getMission("bastogne_east_cedar_1944");
 if (!mission) throw new Error("Expected M01 package");
@@ -32,5 +34,29 @@ describe("mission engine", () => {
     const a = reduce(createInitialState(mission, "replay-seed", "scout"), { type: "END_TURN" });
     const b = reduce(createInitialState(mission, "replay-seed", "scout"), { type: "END_TURN" });
     expect(a.state).toEqual(b.state);
+  });
+
+  it("applies a quartermaster requisition as real starting state", () => {
+    const support = supportById("army_sherman");
+    if (!support) throw new Error("Expected Sherman support");
+    const state = createInitialState(mission, "support-seed", "leaders", support);
+    expect(state.deployedSupportId).toBe("army_sherman");
+    expect(state.stats.defense).toBe(mission.stats.defense + 9);
+    expect(state.resources.ammo).toBe(mission.resources.ammo + 16);
+    expect(state.enemyPressure).toBe(25);
+  });
+
+  it("settles an ended mission only once for reputation and XP", () => {
+    const closed = {
+      ...createInitialState(mission, "reward-seed", "leaders"),
+      phase: "ended" as const,
+      outcome: { id: "hold" as const, title: "Linha preservada", description: "Teste" },
+    };
+    const first = settleMission(createCommandProfile(), closed);
+    expect(first.reward?.reputation).toBeGreaterThan(0);
+    expect(first.profile.xp).toBeGreaterThan(0);
+    const second = settleMission(first.profile, closed);
+    expect(second.reward).toBeUndefined();
+    expect(second.profile).toEqual(first.profile);
   });
 });

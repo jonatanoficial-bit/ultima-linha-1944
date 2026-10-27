@@ -9,6 +9,7 @@ import type {
   Personnel,
   Resources,
   Stats,
+  SupportPackage,
   Transition,
 } from "./contracts";
 import { hashSeed, nextRandom } from "./rng";
@@ -77,10 +78,38 @@ const applyChoice = (stats: Stats, choice?: IntroChoice): Stats => {
   return adjusted;
 };
 
-export const createInitialState = (mission: MissionPack, seed: string, choiceId?: string): GameState => {
+const applyStatModifiers = (stats: Stats, modifiers: Partial<Stats> = {}): Stats => {
+  const adjusted = copyStats(stats);
+  for (const [key, change] of Object.entries(modifiers)) {
+    const stat = key as keyof Stats;
+    adjusted[stat] = clamp(adjusted[stat] + (change ?? 0));
+  }
+  return adjusted;
+};
+
+const applyResourceModifiers = (resources: Resources, modifiers: Partial<Resources> = {}): Resources => {
+  const adjusted = copyResources(resources);
+  for (const [key, change] of Object.entries(modifiers)) {
+    const resource = key as keyof Resources;
+    adjusted[resource] = Math.max(0, adjusted[resource] + (change ?? 0));
+  }
+  return adjusted;
+};
+
+export const createInitialState = (mission: MissionPack, seed: string, choiceId?: string, support?: SupportPackage): GameState => {
   const choice = mission.introChoices.find((item) => item.id === choiceId) ?? mission.introChoices[0];
+  if (support && support.branch !== mission.campaignId) {
+    throw new Error("Support package does not belong to this campaign branch");
+  }
+  const initialLog: EventLogEntry[] = [
+    { turn: 0, category: "system", text: `Seed ${seed} · estado inicial carregado localmente.` },
+    { turn: 0, category: "command", text: `Prólogo: ${choice.label}. ${choice.description}` },
+  ];
+  if (support) {
+    initialLog.push({ turn: 0, category: "command", text: `QG confirmou requisição: ${support.title}. Seus efeitos já estão no estado operacional.` });
+  }
   const initial: GameState = {
-    gameVersion: "0.1.0",
+    gameVersion: "0.2.0",
     contentVersion: mission.contentVersion,
     missionId: mission.id,
     campaignId: mission.campaignId,
@@ -91,15 +120,13 @@ export const createInitialState = (mission: MissionPack, seed: string, choiceId?
     maxTurns: mission.maxTurns,
     commandAP: 3,
     usedActions: [],
-    enemyPressure: 28,
+    enemyPressure: clamp(28 + (support?.effects.pressureDelta ?? 0)),
     personnel: copyPersonnel(mission.personnel),
-    resources: copyResources(mission.resources),
-    stats: applyChoice(mission.stats, choice),
+    resources: applyResourceModifiers(mission.resources, support?.effects.resources),
+    stats: applyStatModifiers(applyChoice(mission.stats, choice), support?.effects.stats),
     prologueChoiceId: choice.id,
-    log: [
-      { turn: 0, category: "system", text: `Seed ${seed} · estado inicial carregado localmente.` },
-      { turn: 0, category: "command", text: `Prólogo: ${choice.label}. ${choice.description}` },
-    ],
+    deployedSupportId: support?.id,
+    log: initialLog,
   };
   assertState(initial);
   return initial;

@@ -1,6 +1,16 @@
 export type BranchId = "army" | "air" | "navy" | "lab";
 export type GamePhase = "playing" | "ended";
 export type ActionId = "rally" | "triage" | "recon" | "fortify" | "radio" | "rest";
+export type SupportId =
+  | "army_sherman"
+  | "army_jeep"
+  | "army_artillery"
+  | "air_mustang"
+  | "air_fortress"
+  | "air_skytrain"
+  | "navy_destroyer"
+  | "navy_carrier"
+  | "navy_submarine";
 
 export interface Personnel {
   capable: number;
@@ -27,6 +37,38 @@ export interface MissionMap {
 export interface MissionVisuals {
   heroAssetId: string;
   catalogueAssetIds: string[];
+  backdrop: {
+    file: string;
+    title: string;
+    description: string;
+  };
+}
+
+export interface SupportEffects {
+  stats?: Partial<Stats>;
+  resources?: Partial<Resources>;
+  pressureDelta?: number;
+}
+
+/** A requisition is selected before a mission and applied by the deterministic engine. */
+export interface SupportPackage {
+  id: SupportId;
+  branch: Exclude<BranchId, "lab">;
+  assetId: string;
+  title: string;
+  description: string;
+  requestCost: number;
+  effects: SupportEffects;
+}
+
+/** Persistent, browser-local commander progression. No account or network is required. */
+export interface CommandProfile {
+  schemaVersion: "1.0.0";
+  reputation: number;
+  xp: number;
+  unlockedSupportIds: SupportId[];
+  deployedSupportByBranch: Partial<Record<Exclude<BranchId, "lab">, SupportId>>;
+  settledSeeds: string[];
 }
 
 export interface IntroChoice {
@@ -47,6 +89,8 @@ export interface MissionPack {
   maxTurns: number;
   map: MissionMap;
   visuals: MissionVisuals;
+  operationalGoal: string;
+  threatBrief: string;
   personnel: Personnel;
   resources: Resources;
   stats: Stats;
@@ -92,6 +136,7 @@ export interface GameState {
   resources: Resources;
   stats: Stats;
   prologueChoiceId: string;
+  deployedSupportId?: SupportId;
   log: EventLogEntry[];
   outcome?: Outcome;
 }

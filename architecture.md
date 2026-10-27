@@ -1,8 +1,8 @@
 # Arquitetura — ÚLTIMA LINHA · 1944
 
-## Objetivo desta primeira fundação
+## Objetivo da fundação
 
-O produto é um jogo de estratégia narrativa offline. Esta fundação estabelece os contratos, a simulação determinística, o catálogo de campanhas e uma interface touch-first. Ela é uma fatia vertical inicial, não a declaração de que o Lote 1 canônico está completo.
+O produto é um jogo de estratégia narrativa com simulação local. A edição 0.3 estabelece contratos, terreno persistente, formações, tarefas, comunicações e um posto de comando adaptado a toque e teclado. É uma etapa jogável; a [matriz da Bíblia](docs/bible-audit-0.3.md) registra as pendências do Lote 1.
 
 ## Fronteiras
 
@@ -14,13 +14,14 @@ HTML/CSS controls ──commands──> reducer puro ──state──> HTML HUD
                                   └── serialização de save
 
 Mission packs ──> catálogo/loader ──> estado inicial
-                                     └── Phaser FieldScene (mapa sem controles)
+                                     └── CommandMap / Canvas 2D persistente
 ```
 
 * `src/content/` declara campanhas e pacotes; não há ramificações por ID de missão no motor.
-* `src/core/` contém contratos, PRNG, invariantes e reducer. Não importa DOM, Phaser, rede ou `localStorage`.
+* `src/core/` contém contratos, PRNG, invariantes, reducer e validação de arquivos. Não importa DOM, rede ou `localStorage`.
 * `src/ui/` traduz gestos em comandos e apenas renderiza snapshots do estado.
-* `src/game/` renderiza o campo 2D por Phaser. Nenhuma decisão de jogo é feita no canvas.
+* `src/game/` renderiza o campo em Canvas 2D. Câmera, arrasto e seleção são locais ao renderizador; regras e alteração do estado passam pelo redutor.
+* `src/content/operations.ts` define geografia, formações, contatos, eventos e tarefas. As regras por domínio não dependem de IDs individuais de missão.
 
 ## Ciclo de turno
 
@@ -32,15 +33,19 @@ Mission packs ──> catálogo/loader ──> estado inicial
 
 ## Contratos e compatibilidade
 
-`SaveFile` sempre inclui `gameVersion`, `contentVersion`, `missionId` e o estado inteiro. Migrações futuras serão funções versionadas que preservam campos desconhecidos, permitindo que saves antigos sobrevivam à ampliação do catálogo.
+O envelope atual usa `version: 3`, `savedAt` e `state`, incluindo `gameVersion`, `contentVersion` e `missionId`. O decodificador valida limites, contagens, identificadores e tarefas e recoloca a definição oficial do pacote. O arquivo legado `SaveFile` 1.0/estado 0.2 não tem posições e permanece separado, sem migração que invente progresso. Exportações anteriores não são apagadas.
 
 ## Regras de integridade já previstas
 
-* combatentes, feridos, desaparecidos e mortos somam o efetivo original;
+* capazes, feridos/limitados, desaparecidos, mortos e indisponíveis somam o efetivo original;
+* a soma de capazes nas formações acompanha o registro agregado;
 * recursos nunca se tornam negativos;
 * uma ação só executa quando tem custo e pré-condições satisfeitos;
 * o turno não avança pela UI sem passar pelo reducer;
 * a IA e a aleatoriedade usam uma seed reproduzível, sem serviços externos.
+* respostas de rádio, consumo de reservas e entregas são estágios distintos; nenhum estágio entrega duas vezes;
+* geografia não depende da seed ou do turno; unidades só se deslocam por rotas válidas;
+* janelas prioritárias suspendem o avanço até uma decisão explícita, sem relógio de tempo real.
 
 ## Evolução para o Lote 1
 

@@ -1,6 +1,17 @@
+import type {
+  OperationCommand,
+  OperationDefinition,
+  OperationState,
+} from "./operations-types";
 export type BranchId = "army" | "air" | "navy" | "lab";
 export type GamePhase = "playing" | "ended";
-export type ActionId = "rally" | "triage" | "recon" | "fortify" | "radio" | "rest";
+export type ActionId =
+  | "rally"
+  | "triage"
+  | "recon"
+  | "fortify"
+  | "radio"
+  | "rest";
 export type SupportId =
   | "army_sherman"
   | "army_jeep"
@@ -13,6 +24,7 @@ export type SupportId =
   | "navy_submarine";
 
 export interface Personnel {
+  unavailable?: number;
   capable: number;
   wounded: number;
   missing: number;
@@ -75,10 +87,13 @@ export interface IntroChoice {
   id: string;
   label: string;
   description: string;
-  adjustments: Partial<Pick<Stats, "morale" | "readiness" | "intelligence" | "legitimacy">>;
+  adjustments: Partial<
+    Pick<Stats, "morale" | "readiness" | "intelligence" | "legitimacy">
+  >;
 }
 
 export interface MissionPack {
+  operation?: OperationDefinition;
   id: string;
   contentVersion: string;
   campaignId: BranchId;
@@ -114,12 +129,19 @@ export interface EventLogEntry {
 }
 
 export interface Outcome {
-  id: "hold" | "costly-hold" | "withdrawal" | "collapse" | "surrender" | "survival";
+  id:
+    | "hold"
+    | "costly-hold"
+    | "withdrawal"
+    | "collapse"
+    | "surrender"
+    | "survival";
   title: string;
   description: string;
 }
 
 export interface GameState {
+  operation?: OperationState;
   gameVersion: string;
   contentVersion: string;
   missionId: string;
@@ -142,6 +164,7 @@ export interface GameState {
 }
 
 export type Command =
+  | OperationCommand
   | { type: "ACT"; actionId: ActionId }
   | { type: "END_TURN" };
 

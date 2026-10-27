@@ -24,6 +24,11 @@ export interface MissionMap {
   theme: "snow" | "airfield" | "ocean" | "outpost";
 }
 
+export interface MissionVisuals {
+  heroAssetId: string;
+  catalogueAssetIds: string[];
+}
+
 export interface IntroChoice {
   id: string;
   label: string;
@@ -41,6 +46,7 @@ export interface MissionPack {
   turnLabel: string;
   maxTurns: number;
   map: MissionMap;
+  visuals: MissionVisuals;
   personnel: Personnel;
   resources: Resources;
   stats: Stats;

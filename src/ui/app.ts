@@ -1,6 +1,7 @@
 import type { ActionId, GameState, MissionPack, SaveFile } from "../core/contracts";
 import { ACTIONS, createInitialState, reduce } from "../core/engine";
 import { getMission, MISSIONS } from "../content/missions";
+import { AIR_ASSETS, APPROVED_ASSETS, NAVAL_ASSETS, PERSONNEL_ASSETS, VEHICLE_ASSETS, approvedAsset, assetUrl } from "../content/assets";
 import { mountField, renderField } from "../game/field";
 
 const app = document.querySelector<HTMLElement>("#app");
@@ -10,6 +11,7 @@ const SAVE_KEY = "ultima-linha-1944/autosave/v1";
 let selectedMission: MissionPack | undefined;
 let game: GameState | undefined;
 let notice = "";
+let galleryOpen = false;
 
 const statLabel: Record<string, string> = {
   morale: "Moral",
@@ -45,10 +47,16 @@ const formatLog = (state: GameState): string =>
     .map((entry) => `<li><span>T${entry.turn}</span>${entry.text}</li>`)
     .join("");
 
+const art = (assetId: string, className = ""): string => {
+  const asset = approvedAsset(assetId);
+  return `<figure class="approved-art ${className}"><img src="${assetUrl(asset)}" alt="${asset.title}: ${asset.description}" loading="lazy"/><figcaption><span>${asset.id}</span>${asset.title}</figcaption></figure>`;
+};
+
 const campaignCards = (): string =>
   MISSIONS.map(
     (mission) => `
       <article class="campaign-card ${mission.campaignId}">
+        ${art(mission.visuals.heroAssetId, "campaign-art")}
         <p class="eyebrow">${mission.campaignId === "lab" ? "LABORATÓRIO" : "CAMPANHA"}</p>
         <h2>${mission.title}</h2>
         <p>${mission.subtitle}</p>
@@ -60,9 +68,11 @@ const campaignCards = (): string =>
 const chooseMissionScreen = (mission: MissionPack): string => `
   <section class="landing">
     <a class="back" href="#" data-back>← Voltar ao catálogo</a>
-    <p class="eyebrow">PRÓLOGO · ESCOLHA PERSISTENTE</p>
-    <h1>${mission.title}</h1>
-    <p class="lead">${mission.historicalNotice}</p>
+    <div class="mission-cinema">
+      <div><p class="eyebrow">PRÓLOGO · ESCOLHA PERSISTENTE</p><h1>${mission.title}</h1><p class="lead">${mission.historicalNotice}</p></div>
+      ${art(mission.visuals.heroAssetId, "mission-hero")}
+    </div>
+    <div class="mission-asset-strip">${mission.visuals.catalogueAssetIds.map((assetId) => art(assetId, "strip-art")).join("")}</div>
     <div class="choice-grid">
       ${mission.introChoices
         .map(
@@ -89,6 +99,7 @@ const titleBar = (mission: MissionPack, state: GameState): string => `
 const gameScreen = (mission: MissionPack, state: GameState): string => `
   ${titleBar(mission, state)}
   <p class="mission-notice">${mission.historicalNotice}</p>
+  <section class="active-cinema"><div>${art(mission.visuals.heroAssetId, "active-portrait")}</div><p><span>ARTE CINEMATOGRÁFICA APROVADA</span>Retrato de apresentação. As decisões, recursos e o mapa continuam separados da arte e são executados pelo motor local.</p></section>
   <div class="battlefield" id="battlefield" aria-label="Mapa operacional. Os controles estão abaixo do mapa."></div>
   <section class="status-strip" aria-label="Estado da missão">
     <div><span>Capazes</span><strong>${state.personnel.capable}</strong></div>
@@ -125,7 +136,27 @@ const gameScreen = (mission: MissionPack, state: GameState): string => `
   <section class="panel log-panel"><p class="eyebrow">REGISTRO VERIFICÁVEL</p><ul>${formatLog(state)}</ul></section>
   ${state.outcome ? `<section class="outcome"><p class="eyebrow">RELATÓRIO PÓS-AÇÃO</p><h2>${state.outcome.title}</h2><p>${state.outcome.description}</p><button class="primary" data-catalog>Voltar ao catálogo</button></section>` : ""}`;
 
+const gallerySection = (title: string, assets: typeof APPROVED_ASSETS): string => `
+  <section class="archive-section"><div><p class="eyebrow">ACERVO APROVADO</p><h2>${title}</h2></div><div class="archive-grid">${assets.map((asset) => art(asset.id, "archive-art")).join("")}</div></section>`;
+
+const galleryScreen = (): string => `
+  <section class="landing archive">
+    <a class="back" href="#" data-close-gallery>← Voltar ao catálogo</a>
+    <p class="eyebrow">BÍBLIA MESTRE · CATÁLOGO 27/28</p>
+    <h1>ACERVO<br/><em>CANÔNICO</em></h1>
+    <p class="lead">45 artes aprovadas foram importadas diretamente do documento mestre. São stills cinematográficos: não representam sprites, fotografia documental ou especificação técnica definitiva.</p>
+    ${gallerySection("Personagens e arquétipos", PERSONNEL_ASSETS)}
+    ${gallerySection("Veículos", VEHICLE_ASSETS)}
+    ${gallerySection("Aviação", AIR_ASSETS)}
+    ${gallerySection("Marinha", NAVAL_ASSETS)}
+  </section>`;
+
 const render = (): void => {
+  if (galleryOpen) {
+    app.innerHTML = galleryScreen();
+    bindGallery();
+    return;
+  }
   if (game) {
     const mission = missionByGame();
     if (!mission) throw new Error("Mission package is unavailable for this save.");
@@ -140,7 +171,7 @@ const render = (): void => {
   }
   app.innerHTML = selectedMission
     ? chooseMissionScreen(selectedMission)
-    : `<section class="landing"><p class="eyebrow">VALE GAMES · FUNDAÇÃO JOGÁVEL</p><h1>ÚLTIMA<br/>LINHA <em>— 1944</em></h1><p class="lead">Comando, sobrevivência e informação imperfeita em três carreiras independentes. Tudo roda localmente no navegador.</p><div class="legend"><span>HISTÓRIA COMPROVADA</span><span>DRAMATIZAÇÃO</span><span>HISTÓRIA ALTERNATIVA</span></div><div class="campaign-grid">${campaignCards()}</div></section>`;
+    : `<section class="landing"><div class="home-cinema"><div><p class="eyebrow">VALE GAMES · FUNDAÇÃO JOGÁVEL</p><h1>ÚLTIMA<br/>LINHA <em>— 1944</em></h1><p class="lead">Comando, sobrevivência e informação imperfeita em três carreiras independentes. Tudo roda localmente no navegador.</p></div>${art("P001", "home-portrait")}</div><div class="legend"><span>HISTÓRIA COMPROVADA</span><span>DRAMATIZAÇÃO</span><span>HISTÓRIA ALTERNATIVA</span><button data-gallery>Ver acervo aprovado · 45 assets</button></div><div class="campaign-grid">${campaignCards()}</div></section>`;
   bindLanding();
 };
 
@@ -202,6 +233,11 @@ const bindLanding = (): void => {
   });
   document.querySelector("[data-back]")?.addEventListener("click", (event) => { event.preventDefault(); selectedMission = undefined; render(); });
   document.querySelectorAll<HTMLButtonElement>("[data-start]").forEach((button) => button.addEventListener("click", () => startMission(button.dataset.start ?? "")));
+  document.querySelector<HTMLButtonElement>("[data-gallery]")?.addEventListener("click", () => { galleryOpen = true; render(); });
+};
+
+const bindGallery = (): void => {
+  document.querySelector("[data-close-gallery]")?.addEventListener("click", (event) => { event.preventDefault(); galleryOpen = false; render(); });
 };
 
 const bindGame = (): void => {

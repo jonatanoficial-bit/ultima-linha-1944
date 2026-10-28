@@ -23,3 +23,7 @@ pnpm build
 ```
 
 Leia [architecture.md](architecture.md) antes de alterar motor, saves ou pacotes de missão.
+
+## Produção das cenas narrativas
+
+O [storyboard com nove prompts completos](docs/storyboard-prompts.md) organiza a próxima etapa visual: três cenas por campanha, referências de personagens e pontos de entrada no prólogo. As novas imagens aguardam geração, revisão e integração; este documento não altera a versão jogável 0.3.

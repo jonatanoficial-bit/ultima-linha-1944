@@ -2,6 +2,8 @@
 
 Plano de produção da próxima etapa narrativa · 28/10/2026.
 
+**Atualização da edição 0.4:** o autor entregou o pacote `ULTIMA_LINHA_1944_9_CENAS_CINEMATOGRAFICAS_CODEX.zip`. As nove cenas foram incorporadas aos prólogos, com originais preservados. O texto abaixo conserva o briefing anterior à entrega; os trechos sobre geração pendente são registro daquela etapa. Consulte [a integração e validação atuais](bible-audit-0.4.md).
+
 **9 imagens novas, três por campanha.** Os panoramas existentes continuam úteis no menu e na apresentação dos teatros. Estas novas imagens mostram os acontecimentos próximos do jogador: uma notícia, pessoas em perigo, um comando que precisa ser assumido. Nenhuma delas foi gerada ou incorporada ao jogo nesta entrega.
 
 Referência: [Bíblia Mestra](https://docs.google.com/document/d/1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk/edit), conferida pela exportação local: seção 03, P00.1–P00.8, extensão P00-AIR/P00-NAVY, capítulos A01/N01 e catálogo de cenas CIN01–CIN10. Esta lista é um recorte de produção; não substitui o catálogo completo da Bíblia.

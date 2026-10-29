@@ -22,6 +22,17 @@ export class CommandMap {
       "Mapa tático. Arraste para deslocar; use os botões para ampliar. Seleção por coordenadas disponível no painel de ordens.",
     );
     this.canvas.setAttribute("role", "img");
+    this.canvas.tabIndex = 0;
+    this.canvas.addEventListener("keydown", e => {
+      const d = this.state?.operation?.definition;
+      const unit = this.state?.operation?.units.find(u => u.id === this.selected);
+      const delta: Record<string, Point> = { ArrowLeft: {x:-1,y:0}, ArrowRight: {x:1,y:0}, ArrowUp: {x:0,y:-1}, ArrowDown: {x:0,y:1} };
+      if (!d || !unit || !delta[e.key]) return;
+      e.preventDefault();
+      const from = this.target ?? unit, direction = delta[e.key];
+      this.onSelect({ x: Math.max(0,Math.min(d.columns-1,from.x+direction.x)), y: Math.max(0,Math.min(d.rows-1,from.y+direction.y)) });
+      this.canvas.focus({ preventScroll: true });
+    });
     this.observer = new ResizeObserver(() => this.resize());
     this.canvas.addEventListener("pointerdown", (e) => {
       this.down = {
@@ -292,6 +303,16 @@ export class CommandMap {
         c.stroke();
         c.setLineDash([]);
         c.strokeRect(routeTarget.x * t, routeTarget.y * t, t, t);
+      } else if (this.target) {
+        c.strokeStyle = "#c7644f";
+        c.lineWidth = 2;
+        c.strokeRect(routeTarget.x * t, routeTarget.y * t, t, t);
+        c.beginPath();
+        c.moveTo(routeTarget.x*t,routeTarget.y*t);
+        c.lineTo((routeTarget.x+1)*t,(routeTarget.y+1)*t);
+        c.moveTo((routeTarget.x+1)*t,routeTarget.y*t);
+        c.lineTo(routeTarget.x*t,(routeTarget.y+1)*t);
+        c.stroke();
       }
     }
     const enemies = observedEnemies(s);

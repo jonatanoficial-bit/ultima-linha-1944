@@ -1,11 +1,12 @@
 {
   "name": "ultima-linha-1944",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "node tools/verify-cinematic-assets.mjs && tsc --noEmit && vite build",
+    "validate:cinematics": "node tools/verify-cinematic-assets.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

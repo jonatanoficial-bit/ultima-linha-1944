@@ -1,0 +1,148 @@
+/* The scene is the screen; text and controls are a restrained game overlay. */
+.screen-prologue { height: 100dvh; overflow: hidden; background: #080c0d; }
+.screen-prologue::before, .screen-prologue::after { display: none; }
+.cinema { position: relative; isolation: isolate; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; padding: 0 clamp(20px, 4vw, 80px); background: #080c0d; }
+.cinematic-stage, .cinema-vignette { position: absolute; inset: 0; pointer-events: none; z-index: -2; overflow: hidden; }
+.cinematic-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 42%; animation: frame-reveal .9s ease-out both; }
+@keyframes frame-reveal { from { opacity: 0; } to { opacity: 1; } }
+.cinema-vignette { z-index: -1; background: linear-gradient(180deg, #030606bd 0%, transparent 25%, transparent 43%, #05090bd9 75%, #05090bfa 100%); }
+.cinema-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0; text-shadow: 0 2px 8px #000; }
+.cinema-top h1 { margin: 6px 0 0; font: 21px Georgia, serif; letter-spacing: 3px; }
+.cinema-top nav { display: flex; gap: 5px; }
+.cinema-top nav button { font-size: 11px; background: #080e0f55; }
+.cinema-loading { position: absolute; top: 100px; left: 4vw; padding: 10px 15px; background: #070e10dd; font-size: 12px; }
+.cinema-caption { margin-top: auto; padding: 30px 0 24px; max-height: calc(100dvh - 160px); overflow-y: auto; scrollbar-width: thin; }
+.scene-chapter { display: flex; align-items: center; gap: 16px; font: 10px "Courier New", monospace; letter-spacing: 2px; text-transform: uppercase; color: #d9bf85; margin-bottom: 16px; }
+.scene-chapter span:first-child { border: 1px solid #c9b17c5c; padding: 7px 9px; }
+.cinema-speaker { font: bold 12px "Courier New", monospace; text-transform: uppercase; letter-spacing: 2px; color: #edcf92; margin-bottom: 10px; }
+.cinema-dialogue { max-width: 1030px; font: clamp(20px, 2.05vw, 32px)/1.48 Georgia, serif; color: #f7f2e6; margin-bottom: 8px; text-shadow: 0 2px 10px #000; }
+.cinema-caption h2 { font: clamp(22px, 2.6vw, 35px)/1.2 Georgia, serif; margin: 12px 0 22px; }
+.cinema-choice-receipt { color: #cfbb8e; font-size: 11px; margin: 18px 0 0; }
+.cinema-controls { display: flex; align-items: center; justify-content: space-between; gap: 18px; border-top: 1px solid #dccba533; padding: 15px 0 22px; min-height: 80px; }
+.cinema-controls > div:first-child { display: flex; gap: 4px; flex-wrap: wrap; }
+.cinema-controls button { font-size: 11px; white-space: nowrap; }
+.cinema-next { min-width: 165px; }
+.cinema-progress { display: flex; flex: 1; justify-content: center; gap: 6px; }
+.cinema-progress i { width: 24px; height: 2px; background: #e0d1ad3d; }
+.cinema-progress i.seen { background: #e7c784; }
+.cinema-hint { font: 11px "Courier New", monospace; color: #c5bda9; }
+.cinema-decisions { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+.cinema-decisions .decision { display: flex; gap: 14px; border: 1px solid #d7c19255; border-top: 2px solid #c2a363; background: #0c171be6; backdrop-filter: blur(10px); transition: background .15s, transform .15s; }
+.cinema-decisions .decision:hover { background: #2a3936f5; transform: translateY(-3px); }
+.cinema-decisions .choice-number { color: #e1c48a; font: 18px Georgia, serif; }
+.cinema-decisions .decision strong { font-size: 15px; }
+.cinema-decisions .decision span span { font-size: 12px; }
+.cinema-decisions .decision small { line-height: 1.6; }
+.cinema-choice .cinema-vignette, .cinema-summary .cinema-vignette { background: linear-gradient(180deg,#050a0d90,transparent 24%,#050a0dd9 57%,#050a0d 100%); }
+.cinema-clean .cinema-caption { visibility: hidden; }
+.cinema-clean .cinema-vignette { opacity: .2; }
+.cinema-recap { max-height: 42dvh; overflow-y: auto; max-width: 1000px; padding-right: 15px; }
+.story-transcript { list-style: none; padding: 0; margin: 0; }
+.story-transcript li { border-left: 1px solid #cfb6786b; padding: 0 0 4px 18px; margin-bottom: 22px; }
+.story-transcript strong { color: #dac38e; font: 11px "Courier New", monospace; letter-spacing: 1px; }
+.story-transcript p { margin: 8px 0; color: #e9e5db; }
+.cinema-clean .cinematic-image { object-position: center; }
+
+/* Tactical focus and compact HUD: a fixed viewport, with panels over the field. */
+.screen-game { min-height: 0; overflow: hidden; }
+.command-layout { position: relative; }
+.command-bar { background: linear-gradient(180deg,#111b1bf5,#152322f5); }
+.roster, .orders-panel { background: #121e1fe8; }
+.drawer-controls { display: none; }
+.drawer-heading { display: none; }
+.field-focus .drawer-heading { display: flex; align-items: center; justify-content: space-between; padding: 3px 12px; font: 9px "Courier New", monospace; letter-spacing: 1px; color: #d5bd85; flex-shrink: 0; }
+.drawer-heading button { min-height: 32px; font-size: 20px; padding: 0 9px; }
+.field-focus .command-layout { grid-template-columns: minmax(0,1fr); }
+.field-focus .roster { display: none; }
+.field-focus .orders-panel { display: none; }
+.field-focus.drawer-open .orders-panel { display: flex; position: absolute; top: 8px; bottom: 8px; right: 12px; width: 320px; z-index: 5; border: 1px solid #b8af8960; box-shadow: -14px 0 40px #0006; }
+.field-focus .drawer-controls { display: inline-flex; }
+.field-focus .map-column { min-width: 0; }
+.route-readout { font: 11px/1.6 "Courier New", monospace; padding: 10px 12px; border-left: 2px solid #d6b774; background: #d6b7740c; color: #ead5a5; }
+.route-readout.blocked { color: #e4a994; border-color: #c47e69; }
+.field-focus .map-toolbar > span { font-size: 10px; }
+.map-toolbar .focus-toggle { font-size: 10px; }
+.command-dialog:has(.radio-stamp) { border-top: 3px solid #bd9a5b; background: radial-gradient(ellipse at top left,#273b38,#101c1e 75%); }
+.command-dialog:has(.radio-stamp) .speaker { color: #dec084; letter-spacing: 1px; }
+.command-dialog { scrollbar-width: thin; }
+
+@media (max-width: 1050px) {
+  .cinema-controls { gap: 8px; }
+  .cinema-controls button { padding: 9px 10px; }
+  .cinema-progress { display: none; }
+  .cinema-decisions { gap: 8px; }
+  .cinema-decisions .decision { padding: 12px; gap: 8px; }
+}
+@media (max-width: 800px) {
+  .screen-game { height: 100dvh; min-height: 0; display: grid; grid-template-rows: 65px minmax(0,1fr) 85px; padding-bottom: 0; }
+  .command-bar { position: relative; top: auto; }
+  .command-layout { display: flex; flex-direction: column; overflow: hidden; }
+  .roster { padding: 4px 10px; flex: 0 0 64px; overflow: hidden; }
+  .formation { min-height: 54px; padding: 5px; }
+  .formation-list { height: 56px; scrollbar-width: thin; overflow-y: hidden; }
+  .map-column { height: auto; min-height: 0; flex: 1; padding: 4px 10px; }
+  .map-toolbar { flex-shrink: 0; }
+  .map-toolbar > span { font-size: 8px; }
+  .map-toolbar > span small { display: none; }
+  .map-toolbar .icon { min-width: 30px; padding: 5px 7px; }
+  .map-toolbar .quiet { padding: 6px 7px; font-size: 9px; }
+  .map-toolbar [data-action="history"] { display: none; }
+  .drawer-controls { display: inline-flex; }
+  .drawer-heading { display: flex; align-items: center; justify-content: space-between; padding: 3px 12px; font: 9px "Courier New", monospace; letter-spacing: 1px; color: #d5bd85; flex-shrink: 0; }
+  .orders-panel, .field-focus .orders-panel { display: none; }
+  .drawer-open .orders-panel, .field-focus.drawer-open .orders-panel { display: flex; position: absolute; z-index: 5; top: 65px; right: 10px; bottom: 5px; width: min(345px,calc(100% - 20px)); min-height: 0; margin: 0; border: 1px solid #c7b47960; background: #101d20fa; box-shadow: -12px 0 40px #0008; }
+  .field-focus.drawer-open .orders-panel { top: 5px; }
+  .orders-panel .panel-tabs { position: static; flex-shrink: 0; }
+  .orders-panel .panel-content { overflow-y: auto; padding: 13px; }
+  .turn-bar { position: relative; min-height: 0; padding: 8px 10px; z-index: 6; }
+  .command-points { display: block; }
+  .command-points span { font-size: 7px; }
+  .command-points b { font-size: 14px; }
+  .resource-strip { gap: 7px; }
+  .resource-strip b { font-size: 15px; }
+  .resource-strip small { font-size: 7px; }
+  .turn-control { gap: 8px; }
+  .end-turn { min-width: 120px; padding: 9px; }
+  .field-notice { font-size: 9px; min-height: 20px; }
+  .map-caption { padding: 5px 0; }
+  .incoming-banner { padding: 6px 8px; }
+  .cinema { padding: 0 20px; }
+  .cinema-top { padding: 14px 0; }
+  .cinema-top h1 { font-size: 16px; letter-spacing: 1px; }
+  .cinema-top .eyebrow { font-size: 8px; }
+  .cinema-top nav { gap: 0; }
+  .cinema-top nav button { padding: 7px; font-size: 10px; }
+  .cinema-caption { padding: 20px 0; }
+  .scene-chapter { font-size: 8px; letter-spacing: 1px; gap: 10px; }
+  .cinema-dialogue { font-size: 22px; }
+  .cinema-controls { padding: 10px 0 16px; flex-wrap: wrap; }
+  .cinema-controls > div:first-child { flex: 1; }
+  .cinema-decisions { grid-template-columns: 1fr; }
+  .cinema-decisions .decision span span { font-size: 11px; margin-top: 3px; }
+  .cinema-decisions .decision small { font-size: 10px; margin-top: 5px; }
+  .cinema-decisions .decision strong { font-size: 14px; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .cinematic-stage { bottom: auto; height: 65dvh; }
+  .cinematic-image { object-fit: contain; object-position: center 20%; }
+  .cinema-vignette { background: linear-gradient(180deg,#030606c9,transparent 20%,transparent 36%,#080c0de8 59%,#080c0d 72%); }
+  .cinema-caption { max-height: 53dvh; }
+  .cinema-caption h2 { font-size: 24px; }
+  .cinema-choice .cinema-caption { max-height: 65dvh; }
+  .cinema-choice .cinema-vignette, .cinema-summary .cinema-vignette { background: linear-gradient(180deg,#080c0d88,transparent 20%,#080c0de0 38%,#080c0d 70%); }
+  .cinema-clean .cinematic-stage { height: 100dvh; }
+  .cinema-clean .cinematic-image { object-position: center; }
+}
+@media (max-height: 550px) and (min-aspect-ratio: 1/1) {
+  .cinema-top { padding: 8px 0; }
+  .cinema-caption { padding: 8px 0; max-height: calc(100dvh - 115px); }
+  .cinema-dialogue { font-size: 19px; }
+  .scene-chapter { margin-bottom: 8px; }
+  .cinema-controls { min-height: 55px; padding: 6px 0; }
+  .cinema-decisions { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .cinema-caption h2 { font-size: 22px; margin: 6px 0 12px; }
+  .cinema-recap { max-height: 38dvh; }
+  .screen-game { grid-template-rows: 52px minmax(0,1fr) 65px; }
+  .roster { flex-basis: 57px; }
+}
+@media (prefers-reduced-motion: reduce) { .cinematic-image { animation: none; } .cinema-decisions .decision:hover { transform: none; } }

@@ -1,0 +1,312 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "vale-games-ultima-linha-1944-approved-cinematics-l1",
+  "title": "ÚLTIMA LINHA — 1944 | Nove cenas cinematográficas aprovadas",
+  "approvedOn": "2026-10-28",
+  "sourceDocument": "https://docs.google.com/document/d/1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk/edit",
+  "assetCount": 9,
+  "sizePolicy": "Original PNG files copied byte-for-byte; no edits, cropping or recompression",
+  "runtimeBaseUrlHint": "For Vite/GitHub Pages, prepend import.meta.env.BASE_URL to each runtimePath; never use public/ in the browser URL.",
+  "contentStatus": "approved-concept-art",
+  "publicationStatus": "asset-pack-only-not-published-to-repository",
+  "historicalVerification": "Historical uniform/equipment fidelity requires separate research and QA",
+  "assets": [
+    {
+      "id": "CIN02",
+      "globalSequence": 1,
+      "sequenceInCampaign": 1,
+      "campaign": "army",
+      "missionId": "bastogne_east_cedar_1944",
+      "title": "A notícia que muda tudo",
+      "filename": "CIN02_command_ruins.png",
+      "repoPath": "public/assets/missions/bastogne_east_cedar_1944/scenes/CIN02_command_ruins.png",
+      "runtimePath": "assets/missions/bastogne_east_cedar_1944/scenes/CIN02_command_ruins.png",
+      "mimeType": "image/png",
+      "pixelSize": {
+        "width": 1672,
+        "height": 941
+      },
+      "colorType": "RGB",
+      "sizeBytes": 2151362,
+      "sha256": "60fa7dfdca0ff34b3698bbe5b5afcf8086a9036d78ef7e812c506da5be524e9b",
+      "approval": {
+        "status": "approved",
+        "approvedOn": "2026-10-28",
+        "type": "artistic-and-narrative"
+      },
+      "historicalAccuracy": "concept-art-not-documentary",
+      "source": {
+        "googleDocsDocumentId": "1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk",
+        "googleDocsTabId": "t.t5s3l044ln6m",
+        "googleDocsUrl": "https://docs.google.com/document/d/1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk/edit?tab=t.t5s3l044ln6m"
+      },
+      "usage": "cinematic-scene-background",
+      "requiresSeparateUI": true,
+      "description": "P001 Daniel Mercer recebe de Thomas Bell a notícia da morte de Hayes; cadeira vazia ao fundo."
+    },
+    {
+      "id": "CIN03",
+      "globalSequence": 2,
+      "sequenceInCampaign": 2,
+      "campaign": "army",
+      "missionId": "bastogne_east_cedar_1944",
+      "title": "Posto médico improvisado",
+      "filename": "CIN03_aid_station.png",
+      "repoPath": "public/assets/missions/bastogne_east_cedar_1944/scenes/CIN03_aid_station.png",
+      "runtimePath": "assets/missions/bastogne_east_cedar_1944/scenes/CIN03_aid_station.png",
+      "mimeType": "image/png",
+      "pixelSize": {
+        "width": 1672,
+        "height": 941
+      },
+      "colorType": "RGB",
+      "sizeBytes": 2184444,
+      "sha256": "dec4d9a12ea6be5adfeeea9dd303cc77dd2578b99bde8f086161ff77a8feb424",
+      "approval": {
+        "status": "approved",
+        "approvedOn": "2026-10-28",
+        "type": "artistic-and-narrative"
+      },
+      "historicalAccuracy": "concept-art-not-documentary",
+      "source": {
+        "googleDocsDocumentId": "1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk",
+        "googleDocsTabId": "t.okudvyl078gu",
+        "googleDocsUrl": "https://docs.google.com/document/d/1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk/edit?tab=t.okudvyl078gu"
+      },
+      "usage": "cinematic-scene-background",
+      "requiresSeparateUI": true,
+      "description": "Helen Ward atende soldado ferido e consciente; Mercer observa. A decisão médica ainda não foi tomada."
+    },
+    {
+      "id": "CIN04",
+      "globalSequence": 3,
+      "sequenceInCampaign": 3,
+      "campaign": "army",
+      "missionId": "bastogne_east_cedar_1944",
+      "title": "A ordem que chega pela metade",
+      "filename": "CIN04_radio_corner.png",
+      "repoPath": "public/assets/missions/bastogne_east_cedar_1944/scenes/CIN04_radio_corner.png",
+      "runtimePath": "assets/missions/bastogne_east_cedar_1944/scenes/CIN04_radio_corner.png",
+      "mimeType": "image/png",
+      "pixelSize": {
+        "width": 1672,
+        "height": 941
+      },
+      "colorType": "RGB",
+      "sizeBytes": 2018254,
+      "sha256": "241a1f0e51a7974161b76d3f9588715be44a601976849fbd8582b4336d9c883e",
+      "approval": {
+        "status": "approved",
+        "approvedOn": "2026-10-28",
+        "type": "artistic-and-narrative"
+      },
+      "historicalAccuracy": "concept-art-not-documentary",
+      "source": {
+        "googleDocsDocumentId": "1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk",
+        "googleDocsTabId": "t.9rqfcseeknkl",
+        "googleDocsUrl": "https://docs.google.com/document/d/1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk/edit?tab=t.9rqfcseeknkl"
+      },
+      "usage": "cinematic-scene-background",
+      "requiresSeparateUI": true,
+      "description": "Cabo Isaac Turner opera rádio de campanha enquanto Mercer aguarda uma mensagem incompleta."
+    },
+    {
+      "id": "AIR_CIN01",
+      "globalSequence": 4,
+      "sequenceInCampaign": 1,
+      "campaign": "air",
+      "missionId": "airfield_last_wing_1944",
+      "title": "Sobreviver à queda",
+      "filename": "AIR_CIN01_crash_survivor.png",
+      "repoPath": "public/assets/missions/airfield_last_wing_1944/scenes/AIR_CIN01_crash_survivor.png",
+      "runtimePath": "assets/missions/airfield_last_wing_1944/scenes/AIR_CIN01_crash_survivor.png",
+      "mimeType": "image/png",
+      "pixelSize": {
+        "width": 1672,
+        "height": 941
+      },
+      "colorType": "RGB",
+      "sizeBytes": 2594783,
+      "sha256": "9283036f26dc002e0a82a68d11845f034efe0d03a52a1c89a1541f0f173f7fa7",
+      "approval": {
+        "status": "approved",
+        "approvedOn": "2026-10-28",
+        "type": "artistic-and-narrative"
+      },
+      "historicalAccuracy": "concept-art-not-documentary",
+      "source": {
+        "googleDocsDocumentId": "1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk",
+        "googleDocsTabId": "t.7fyyhpr28jc2",
+        "googleDocsUrl": "https://docs.google.com/document/d/1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk/edit?tab=t.7fyyhpr28jc2"
+      },
+      "usage": "cinematic-scene-background",
+      "requiresSeparateUI": true,
+      "description": "P023 Thomas E. Walker ajoelhado diante dos destroços, antes de buscar ajuda."
+    },
+    {
+      "id": "AIR_CIN02",
+      "globalSequence": 5,
+      "sequenceInCampaign": 2,
+      "campaign": "air",
+      "missionId": "airfield_last_wing_1944",
+      "title": "A base devastada",
+      "filename": "AIR_CIN02_ruined_airfield.png",
+      "repoPath": "public/assets/missions/airfield_last_wing_1944/scenes/AIR_CIN02_ruined_airfield.png",
+      "runtimePath": "assets/missions/airfield_last_wing_1944/scenes/AIR_CIN02_ruined_airfield.png",
+      "mimeType": "image/png",
+      "pixelSize": {
+        "width": 1672,
+        "height": 941
+      },
+      "colorType": "RGB",
+      "sizeBytes": 2585272,
+      "sha256": "e8d445c45f0d586674293ab835ed2473b00cddf187babe4dccfafdf80e3065f7",
+      "approval": {
+        "status": "approved",
+        "approvedOn": "2026-10-28",
+        "type": "artistic-and-narrative"
+      },
+      "historicalAccuracy": "concept-art-not-documentary",
+      "source": {
+        "googleDocsDocumentId": "1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk",
+        "googleDocsTabId": "t.1lgzretjemtc",
+        "googleDocsUrl": "https://docs.google.com/document/d/1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk/edit?tab=t.1lgzretjemtc"
+      },
+      "usage": "cinematic-scene-background",
+      "requiresSeparateUI": true,
+      "description": "Walker retorna ao aeródromo avariado e vê pista, hangares e aeronaves danificadas."
+    },
+    {
+      "id": "AIR_CIN03",
+      "globalSequence": 6,
+      "sequenceInCampaign": 3,
+      "campaign": "air",
+      "missionId": "airfield_last_wing_1944",
+      "title": "Um esquadrão nas suas mãos",
+      "filename": "AIR_CIN03_interim_command.png",
+      "repoPath": "public/assets/missions/airfield_last_wing_1944/scenes/AIR_CIN03_interim_command.png",
+      "runtimePath": "assets/missions/airfield_last_wing_1944/scenes/AIR_CIN03_interim_command.png",
+      "mimeType": "image/png",
+      "pixelSize": {
+        "width": 1672,
+        "height": 941
+      },
+      "colorType": "RGB",
+      "sizeBytes": 2276713,
+      "sha256": "b5999495fe9f2a4866d11caf270680cee58068d53d007622b90521d00c82b908",
+      "approval": {
+        "status": "approved",
+        "approvedOn": "2026-10-28",
+        "type": "artistic-and-narrative"
+      },
+      "historicalAccuracy": "concept-art-not-documentary",
+      "source": {
+        "googleDocsDocumentId": "1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk",
+        "googleDocsTabId": "t.necjdv5sssgr",
+        "googleDocsUrl": "https://docs.google.com/document/d/1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk/edit?tab=t.necjdv5sssgr"
+      },
+      "usage": "cinematic-scene-background",
+      "requiresSeparateUI": true,
+      "description": "Oficial superior comunica a Walker comando interino, numa sala de operações danificada."
+    },
+    {
+      "id": "NAV_CIN01",
+      "globalSequence": 7,
+      "sequenceInCampaign": 1,
+      "campaign": "navy",
+      "missionId": "pacific_broken_watch_1944",
+      "title": "A ponte sem comando",
+      "filename": "NAV_CIN01_broken_bridge.png",
+      "repoPath": "public/assets/missions/pacific_broken_watch_1944/scenes/NAV_CIN01_broken_bridge.png",
+      "runtimePath": "assets/missions/pacific_broken_watch_1944/scenes/NAV_CIN01_broken_bridge.png",
+      "mimeType": "image/png",
+      "pixelSize": {
+        "width": 1672,
+        "height": 941
+      },
+      "colorType": "RGB",
+      "sizeBytes": 2428561,
+      "sha256": "935a552dd5458b43ea352932e878d027c081abbc8e940c757d22c5f66a4a2824",
+      "approval": {
+        "status": "approved",
+        "approvedOn": "2026-10-28",
+        "type": "artistic-and-narrative"
+      },
+      "historicalAccuracy": "concept-art-not-documentary",
+      "source": {
+        "googleDocsDocumentId": "1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk",
+        "googleDocsTabId": "t.bfas8kj1zs8z",
+        "googleDocsUrl": "https://docs.google.com/document/d/1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk/edit?tab=t.bfas8kj1zs8z"
+      },
+      "usage": "cinematic-scene-background",
+      "requiresSeparateUI": true,
+      "description": "P024 Robert J. Sullivan enfrenta a vacância do comando na ponte avariada do contratorpedeiro."
+    },
+    {
+      "id": "NAV_CIN02",
+      "globalSequence": 8,
+      "sequenceInCampaign": 2,
+      "campaign": "navy",
+      "missionId": "pacific_broken_watch_1944",
+      "title": "Homens e máquinas precisam de você",
+      "filename": "NAV_CIN02_crew_in_peril.png",
+      "repoPath": "public/assets/missions/pacific_broken_watch_1944/scenes/NAV_CIN02_crew_in_peril.png",
+      "runtimePath": "assets/missions/pacific_broken_watch_1944/scenes/NAV_CIN02_crew_in_peril.png",
+      "mimeType": "image/png",
+      "pixelSize": {
+        "width": 1672,
+        "height": 941
+      },
+      "colorType": "RGB",
+      "sizeBytes": 2346237,
+      "sha256": "9d2bd52d63d9b5838a2079176a1f1ea555e1d1928189b6c6057e6c3e10825ef5",
+      "approval": {
+        "status": "approved",
+        "approvedOn": "2026-10-28",
+        "type": "artistic-and-narrative"
+      },
+      "historicalAccuracy": "concept-art-not-documentary",
+      "source": {
+        "googleDocsDocumentId": "1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk",
+        "googleDocsTabId": "t.570d5n9m08v0",
+        "googleDocsUrl": "https://docs.google.com/document/d/1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk/edit?tab=t.570d5n9m08v0"
+      },
+      "usage": "cinematic-scene-background",
+      "requiresSeparateUI": true,
+      "description": "Tripulantes escolhem entre prioridades concorrentes: socorro de um ferido ou serviço de avarias."
+    },
+    {
+      "id": "NAV_CIN03",
+      "globalSequence": 9,
+      "sequenceInCampaign": 3,
+      "campaign": "navy",
+      "missionId": "pacific_broken_watch_1944",
+      "title": "Definir um rumo sem ter certeza",
+      "filename": "NAV_CIN03_course_and_radio.png",
+      "repoPath": "public/assets/missions/pacific_broken_watch_1944/scenes/NAV_CIN03_course_and_radio.png",
+      "runtimePath": "assets/missions/pacific_broken_watch_1944/scenes/NAV_CIN03_course_and_radio.png",
+      "mimeType": "image/png",
+      "pixelSize": {
+        "width": 1672,
+        "height": 941
+      },
+      "colorType": "RGB",
+      "sizeBytes": 2313676,
+      "sha256": "79b85bb3b50eef07789ac2c9e00edf8011d4ea3c7ef4b522cafd0c5dc523b1cf",
+      "approval": {
+        "status": "approved",
+        "approvedOn": "2026-10-28",
+        "type": "artistic-and-narrative"
+      },
+      "historicalAccuracy": "concept-art-not-documentary",
+      "source": {
+        "googleDocsDocumentId": "1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk",
+        "googleDocsTabId": "t.x7l0vk2fgb7r",
+        "googleDocsUrl": "https://docs.google.com/document/d/1JRYP_Hk7IJlhCgYjGs0inozYO6W_-_d3dJLfVWfXcwk/edit?tab=t.x7l0vk2fgb7r"
+      },
+      "usage": "cinematic-scene-background",
+      "requiresSeparateUI": true,
+      "description": "Sullivan examina carta náutica enquanto operador tenta contato por rádio; rota ainda não escolhida."
+    }
+  ]
+}

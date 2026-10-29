@@ -9,7 +9,7 @@ export function decodeSave(raw: string, mission: MissionPack): GameState {
   if (
     payload.version !== 3 ||
     !s ||
-    s.gameVersion !== "0.3.0" ||
+    !["0.3.0", "0.4.0"].includes(s.gameVersion) ||
     s.missionId !== mission.id ||
     s.campaignId !== mission.campaignId ||
     !s.operation ||

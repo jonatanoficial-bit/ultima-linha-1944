@@ -196,7 +196,7 @@ export const createInitialState = (
     });
   }
   const initial: GameState = {
-    gameVersion: "0.3.0",
+    gameVersion: "0.4.0",
     operation: mission.operation
       ? createOperation(mission.operation)
       : undefined,

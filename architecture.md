@@ -6,6 +6,8 @@ O produto é um jogo de estratégia narrativa com simulação local. A edição 
 
 ## Fronteiras
 
+A edição 0.4 acrescenta `core/narrative.ts`, máquina de estados de apresentação independente do redutor de combate. `content/cinematics.ts` vincula os nove assets às passagens do prólogo; `ui/cinematic-stage.ts` mantém o quadro anterior até a próxima imagem ser decodificada. Somente o handoff após uma escolha explícita cria o estado operacional. O formato v3 permanece compatível com os saves 0.3.
+
 ```
 HTML/CSS controls ──commands──> reducer puro ──state──> HTML HUD
                                   │

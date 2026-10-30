@@ -9,7 +9,7 @@ export function decodeSave(raw: string, mission: MissionPack): GameState {
   if (
     payload.version !== 3 ||
     !s ||
-    !["0.3.0", "0.4.0", "0.5.0"].includes(s.gameVersion) ||
+    !["0.3.0", "0.4.0", "0.5.0", "0.6.0"].includes(s.gameVersion) ||
     s.missionId !== mission.id ||
     s.campaignId !== mission.campaignId ||
     !s.operation ||
@@ -144,6 +144,8 @@ export function decodeSave(raw: string, mission: MissionPack): GameState {
     )
   )
     throw new Error("Reservas inválidas.");
+  if (o.decisionRecords !== undefined && (!Array.isArray(o.decisionRecords) || o.decisionRecords.length > d.events.length || new Set(o.decisionRecords.map(r=>r.eventId)).size !== o.decisionRecords.length || !o.decisionRecords.every(r=>o.decisions.includes(r.eventId) && d.events.some(e=>e.id===r.eventId && e.choices.some(c=>c.id===r.choiceId)) && Number.isInteger(r.turn) && r.turn>=1 && r.turn<=s.currentTurn))) throw new Error('Memória de decisões inválida.');
+  if(o.damageSites !== undefined && (!Array.isArray(o.damageSites) || o.damageSites.length>80 || !o.damageSites.every(p=>point(p)&&Number.isInteger(p.turn)&&p.turn>=1&&p.turn<=s.currentTurn))) throw new Error('Marcas de combate inválidas.');
   o.definition = structuredClone(d);
   // Names and labels from saves are never authoritative content.
   o.units.forEach((u) => {

@@ -98,3 +98,20 @@
   .command-bar { gap: 8px; }
   .operation-name .eyebrow { font-size: 8px; letter-spacing: 1px; }
 }
+.people-record { display:grid; gap:12px; }
+.people-record article { border-left:2px solid #c6aa70; padding:12px 18px; background:#d4ba7b08; }
+.people-record h3 { font:22px Georgia,serif; color:#e0c48a; margin:0 0 8px; }
+.people-record p { font-size:12px; color:#c4cdbf; }
+@media(max-width:800px){.bar-actions [data-action="people"] {display:inline-flex;padding:8px;font-size:10px;}}
+.person-portrait { width:100px;height:134px;object-fit:cover;float:left;margin:0 18px 12px 0;border:1px solid #b7a376; }
+.people-record article {display:flow-root;}
+.call-portrait {width:130px;height:174px;object-fit:cover;float:left;position:relative;z-index:2;margin:15px 20px 12px 8px;border:1px solid #d7be83;}
+.memory-reaction {font:12px/1.5 'Courier New',monospace;color:#d2bc85;border-left:2px solid #b99d62;padding-left:12px;}
+@media(max-width:600px){.call-portrait{width:76px;height:102px;margin:18px 12px 8px 0}.person-portrait{width:75px;height:100px}.call-scene .speaker{font-size:18px}}
+/* Slow environmental motion belongs to the room, never to the simulation clock. */
+.station-stage::after {content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;opacity:.14;background:radial-gradient(ellipse at 20% 30%,#c1d4d6,transparent 45%);animation:weather-drift 18s ease-in-out infinite alternate;}
+.branch-navy .station-stage::after {background:linear-gradient(115deg,transparent 35%,#b3d3db55 48%,transparent 60%);animation-duration:9s;}
+.branch-air .station-stage::after {background:radial-gradient(ellipse at 70% 10%,#b3c1bb,transparent 60%);animation-duration:24s;}
+@keyframes weather-drift {from{transform:translateX(-3%);opacity:.08}to{transform:translateX(3%);opacity:.19}}
+@media(prefers-reduced-motion:reduce){.station-stage::after{animation:none}}
+.radio-operator{display:flex;gap:12px;align-items:center;margin-bottom:16px}.radio-operator img{width:64px;height:84px;object-fit:cover;border:1px solid #86734e}.radio-operator p{font-size:12px;color:#beb8a7}

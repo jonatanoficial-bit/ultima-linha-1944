@@ -1,3 +1,6 @@
+import { COMMAND_CHARACTERS, portraitForSender } from "../content/characters";
+import { rememberedDecisions, situationConsequences, relationshipWith } from "../core/command-memory";
+import { sameCommunicationIdentity } from "../content/characters";
 import type {
   ActionId,
   Command,
@@ -199,8 +202,8 @@ function modal(title: string, body: string, footer = "", kind = "info") {
     closeModal();
   });
   el.showModal();
-  (el.querySelector("footer button") as HTMLElement)?.focus();
-  if (kind === "incoming") {
+  (el.querySelector("footer button") as HTMLElement)?.focus({ preventScroll: true });
+  if (kind === "incoming" || kind === "info") {
     const heading = el.querySelector<HTMLElement>("h2")!;
     heading.tabIndex = -1;
     heading.focus({ preventScroll: true });
@@ -231,7 +234,7 @@ function incoming() {
   beep();
   modal(
     e.title,
-    `<div class="call-scene"><img src="${sceneUrl(communicationScene(game.campaignId, e.from))}" alt="Ambiente da comunicação"><div><span class="radio-stamp">● COMUNICAÇÃO PRIORITÁRIA · T${e.turn}</span><p class="speaker">${esc(e.from)}</p><span>${esc(communicationRole(e.from))}</span></div></div><div class="call-signal" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p class="dialogue">${esc(e.text)}</p><details class="call-memory"><summary>Registro e confiança do comando · ${game.operation!.trust}%</summary><p>Registro compartilhado da companhia.</p>${game.log.filter(l => game!.operation!.definition.events.some(previous => previous.from === e.from && game!.operation!.decisions.includes(previous.id) && l.text.startsWith(previous.from + ":"))).slice(-3).map(l => `<p>T${l.turn} · ${esc(l.text)}</p>`).join("") || "<p>Sem decisões anteriores registradas neste canal.</p>"}</details><div class="decision-list">${e.choices.map((c) => btn("decision", `<strong>${esc(c.label)}</strong><span>${esc(c.consequence)}</span><small>${esc(effectText(c.effects))}</small>`, "decision", `data-id="${c.id}"`)).join("")}</div>`,
+    `${portraitForSender(e.from) ? `<img class="call-portrait" src="${portraitForSender(e.from)}" alt="${esc(e.from)}">` : ""}<div class="call-scene"><img src="${sceneUrl(communicationScene(game.campaignId, e.from))}" alt="Ambiente da comunicação"><div><span class="radio-stamp">● COMUNICAÇÃO PRIORITÁRIA · T${e.turn}</span><p class="speaker">${esc(e.from)}</p><span>${esc(communicationRole(e.from))}</span></div></div><p class="memory-reaction">${esc(relationshipWith(game,e.from).reaction)}</p><div class="call-signal" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p class="dialogue">${esc(e.text)}</p>${rememberedDecisions(game,e.from).length ? `<p class="memory-reaction">Este interlocutor já recebeu ${rememberedDecisions(game,e.from).length} decisão(ões) sua(s). Consulte o registro antes de responder.</p>` : ""}<p class="memory-reaction">${esc(situationConsequences(game)[0] ?? "")}</p><details class="call-memory"><summary>Registro e confiança do comando · ${game.operation!.trust}%</summary><p>Registro compartilhado da companhia.</p>${game.log.filter(l => game!.operation!.definition.events.some(previous => sameCommunicationIdentity(previous.from, e.from) && game!.operation!.decisions.includes(previous.id) && l.text.startsWith(previous.from + ":"))).slice(-3).map(l => `<p>T${l.turn} · ${esc(l.text)}</p>`).join("") || "<p>Sem decisões anteriores registradas neste canal.</p>"}</details><div class="decision-list">${e.choices.map((c) => btn("decision", `<strong>${esc(c.label)}</strong><span>${esc(c.consequence)}</span><small>${esc(effectText(c.effects))}</small>`, "decision", `data-id="${c.id}"`)).join("")}</div>`,
     btn("to-field", "Consultar o mapa"),
     "incoming",
   );
@@ -377,7 +380,7 @@ function render() {
     `url("${new URL(assetUrl(mission.visuals.backdrop), document.baseURI).href}")`,
   );
   if (screen === "menu") {
-    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar operação", "primary") : ""}${btn("new", hasSave() ? "Nova operação" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p></aside><footer class="title-footer"><span>Campanhas locais · progresso salvo neste navegador</span><span>EDIÇÃO 0.5 / O PESO DA ORDEM</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
+    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar operação", "primary") : ""}${btn("new", hasSave() ? "Nova operação" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p></aside><footer class="title-footer"><span>Campanhas locais · progresso salvo neste navegador</span><span>EDIÇÃO 0.6 / ROSTOS DA LINHA</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
     app
       .querySelector(".title-actions")!
       .insertAdjacentHTML(
@@ -426,6 +429,7 @@ function render() {
     .join(
       "",
     )}</div><div class="turn-control"><div class="command-points" aria-label="${s.commandAP} pontos de comando"><span>COMANDO</span><b>${"◆".repeat(s.commandAP)}${"◇".repeat(3 - s.commandAP)}</b></div>${btn(s.phase === "ended" ? "outcome" : "end", s.phase === "ended" ? "Relatório final" : `Resolver turno <span>+${mission.turnLabel} →</span>`, "primary end-turn")}</div></footer>`;
+  app.querySelector('.bar-actions')?.insertAdjacentHTML('afterbegin', btn('people', 'Pessoas', 'quiet'));
   app.querySelector('.bar-actions')?.insertAdjacentHTML('afterbegin', btn("station", stationView ? "Mapa" : "Posto", "quiet station-toggle"));
   app.querySelector('.map-toolbar > div')?.insertAdjacentHTML('afterbegin', btn("formations", "Formações", "quiet"));
   if (stationView) app.insertAdjacentHTML("beforeend", stationMarkup());
@@ -472,7 +476,7 @@ function panelContent() {
       )
       .join("")}</div>`;
   if (panel === "radio")
-    return `<div class="section-label">CADEIA DE COMANDO</div><p class="micro">Uma chamada ocupa 1 PC. Respostas e portadores levam turnos. O estoque externo é limitado.</p>${d.contacts.map((c) => `<div class="contact"><strong>${esc(c.name)}</strong><span>${esc(c.role)} · ${c.channel === "local" ? "Local" : "Rádio"}</span><div>${btn("contact", "Relatar", "quiet", `data-id="${c.id}" data-topic="advice"`)}${c.channel === "radio" ? btn("contact", "Suprimentos", "quiet", `data-id="${c.id}" data-topic="supplies"`) + btn("contact", "Médico", "quiet", `data-id="${c.id}" data-topic="medical"`) : ""}</div></div>`).join("")}<div class="section-label">TRÁFEGO / SOLICITAÇÕES</div>${
+    return `${s.campaignId === "army" ? `<div class="radio-operator"><img src="${portraitForSender("Isaac Turner")}" alt="Isaac Turner"><div><strong>Cpl. Isaac Turner</strong><p>Operador da companhia · preparando seu contato com a rede.</p></div></div>` : ""}<div class="section-label">CADEIA DE COMANDO</div><p class="micro">Uma chamada ocupa 1 PC. Respostas e portadores levam turnos. O estoque externo é limitado.</p>${d.contacts.map((c) => `<div class="contact"><strong>${esc(c.name)}</strong><span>${esc(c.role)} · ${c.channel === "local" ? "Local" : "Rádio"}</span><div>${btn("contact", "Relatar", "quiet", `data-id="${c.id}" data-topic="advice"`)}${c.channel === "radio" ? btn("contact", "Suprimentos", "quiet", `data-id="${c.id}" data-topic="supplies"`) + btn("contact", "Médico", "quiet", `data-id="${c.id}" data-topic="medical"`) : ""}</div></div>`).join("")}<div class="section-label">TRÁFEGO / SOLICITAÇÕES</div>${
       o.transmissions
         .slice()
         .reverse()
@@ -556,7 +560,7 @@ function archive() {
 function pause() {
   modal(
     "Comando em espera",
-    `<p>O tempo avança apenas quando você resolve o turno. Seu progresso é salvo após cada decisão.</p><div class="pause-actions">${btn("guide", "Como comandar")}${btn("sound", sound ? "Desligar ambiente" : "Ligar ambiente", "quiet", `aria-pressed="${sound}"`)}${btn("export", "Exportar partida")}${btn("import", "Importar partida")}${btn("archive", "Arquivo de guerra")}${btn("menu", "Menu principal")}</div>`,
+    `<p>O tempo avança apenas quando você resolve o turno. Seu progresso é salvo após cada decisão.</p><label>Volume do ambiente e efeitos <input id="audio-level" type="range" min="0" max="100" value="${Math.round(gameAudio.getVolume()*100)}" aria-label="Volume do áudio"></label><div class="pause-actions">${btn("guide", "Como comandar")}${btn("sound", sound ? "Desligar ambiente" : "Ligar ambiente", "quiet", `aria-pressed="${sound}"`)}${btn("export", "Exportar partida")}${btn("import", "Importar partida")}${btn("archive", "Arquivo de guerra")}${btn("menu", "Menu principal")}</div>`,
     btn("close", "Retomar operação", "primary"),
     "pause",
   );
@@ -572,6 +576,7 @@ function download() {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+app.addEventListener('input', e => { const input=e.target as HTMLInputElement; if(input.id==='audio-level') gameAudio.setVolume(Number(input.value)/100); });
 app.addEventListener("submit", (e) => {
   if (director) { e.preventDefault(); return; }
   if ((e.target as HTMLElement).id !== "coordinates") return;
@@ -593,6 +598,13 @@ app.addEventListener("click", async (e) => {
     if (action === "play-next") director.next();
     if (action === "play-skip") director.skip();
     return;
+  }
+  if (action === "people" && game) {
+    const senders = [...new Set([...game.operation!.definition.events.map(event => event.from), ...COMMAND_CHARACTERS.filter(c=>c.branch===game!.campaignId).map(c=>c.name)])].filter((name,index,all) => all.findIndex(other => sameCommunicationIdentity(name,other)) === index);
+    modal("Pessoas e consequências", '<p>Seu registro de decisões e a situação atual da operação.</p><div class="people-record">'+senders.map(sender => {
+      const memory=rememberedDecisions(game!,sender);
+      return '<article>'+(portraitForSender(sender) ? '<img class=person-portrait src="'+portraitForSender(sender)+'" alt="'+esc(sender)+'">' : '')+'<h3>'+esc(sender)+'</h3><p>'+esc(communicationRole(sender))+'</p><p>Confiança neste canal: '+relationshipWith(game!,sender).trust+'/100 · '+esc(relationshipWith(game!,sender).reaction)+'</p>'+ (memory.length ? memory.map(item=>'<p><strong>T'+item.turn+' · '+esc(item.title)+'</strong><br>'+esc(item.choice ?? 'Decisão registrada; texto da resposta não consta mais no diário.')+(item.consequence ? '<br>'+esc(item.consequence) : '')+'</p>').join('') : '<p>Nenhuma decisão anterior registrada com este interlocutor.</p>')+'</article>';
+    }).join('')+'</div><h3>Consequências no presente</h3><ul>'+situationConsequences(game).map(text=>'<li>'+esc(text)+'</li>').join('')+'</ul>'); return;
   }
   if (action === "station") { stationView = !stationView; drawerOpen = false; render(); return; }
   if (action === "to-station") { stationView = true; drawerOpen = false; render(); return; }

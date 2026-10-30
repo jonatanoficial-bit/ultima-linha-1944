@@ -92,6 +92,8 @@ export interface Transmission {
   cargo?: Partial<Resources>;
 }
 export interface OperationState {
+  decisionRecords?: { eventId: string; choiceId: string; turn: number }[];
+  damageSites?: (Point & { turn: number })[];
   definition: OperationDefinition;
   units: Formation[];
   enemies: Formation[];

@@ -1,3 +1,4 @@
+import { drawFormation, drawAircraft } from "./world-figures";
 import type { GameState } from "../core/contracts";
 import type { Point, Terrain } from "../core/operations-types";
 import { observedEnemies, pathTo, terrainAt } from "../core/operations-engine";
@@ -363,6 +364,14 @@ export class CommandMap {
         c.stroke();
       }
     }
+    for(const site of o.damageSites ?? []) {
+      const px=(site.x+.5)*t,py=(site.y+.5)*t;
+      c.fillStyle=naval?'#a4bcb635':'#423e3290';c.beginPath();c.ellipse(px,py,t*.65,t*.35,-.3,0,Math.PI*2);c.fill();
+      c.strokeStyle='#393a32';c.lineWidth=1;for(let i=0;i<4;i++){c.beginPath();c.moveTo(px+(i-2)*t*.2,py);c.lineTo(px+(i-2)*t*.3,py+t*.4);c.stroke();}
+    }
+    if(air){for(let i=0;i<Math.min(6,o.systems.aircraft ?? 0);i++)drawAircraft(c,(15+i*3)*t,8*t,t*.85);}
+    const hour=new Date(new Date(d.start).getTime()+(s.currentTurn-1)*d.minutes*60000).getUTCHours();
+    if(hour>=19||hour<6){c.fillStyle='rgba(12,26,48,.17)';c.fillRect(0,0,d.columns*t,d.rows*t);}
     const enemies = observedEnemies(s);
     for (const u of [...enemies, ...o.units.filter((u) => u.strength > 0)]) {
       const moving = this.event?.kind === "move" && this.event.unitId === u.id ? pointOnRoute(this.event.path ?? [], this.progress) : undefined;
@@ -372,30 +381,7 @@ export class CommandMap {
         y = ((moving?.y ?? u.y) + 0.5) * t,
         w = Math.max(18, t * 1.6),
         h = w * 0.65;
-      c.shadowColor = "#081511aa";
-      c.shadowBlur = 6;
-      c.shadowOffsetY = 2;
-      c.fillStyle = hostile ? "#784c3c" : active ? "#e5c67b" : "#d6d9b6";
-      c.fillRect(x - w / 2, y - h / 2, w, h);
-      c.shadowBlur = 0;
-      c.shadowOffsetY = 0;
-      c.strokeStyle = hostile ? "#edac8e" : "#2d4539";
-      c.lineWidth = active ? 2 : 1;
-      c.strokeRect(x - w / 2, y - h / 2, w, h);
-      c.beginPath();
-      if (naval) {
-        c.moveTo(x - w * 0.35, y);
-        c.lineTo(x + w * 0.35, y);
-        c.lineTo(x + w * 0.2, y + h * 0.25);
-        c.lineTo(x - w * 0.22, y + h * 0.25);
-        c.closePath();
-      } else {
-        c.moveTo(x - w * 0.4, y - h * 0.38);
-        c.lineTo(x + w * 0.4, y + h * 0.38);
-        c.moveTo(x + w * 0.4, y - h * 0.38);
-        c.lineTo(x - w * 0.4, y + h * 0.38);
-      }
-      c.stroke();
+      drawFormation(c,x,y,w*.7,naval,hostile,active,Boolean(moving),this.reducedMotion?0:this.progress,u.role);
       c.font = "bold 10px monospace";
       c.textAlign = "center";
       const label = hostile

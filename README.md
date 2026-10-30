@@ -1,6 +1,6 @@
 # ÚLTIMA LINHA — 1944
 
-Jogo de comando tático e narrativa em 1944. A edição 0.5 acrescenta postos de comando nas três campanhas, chamadas com contexto visual e execução das ordens com pausa, aceleração e repetição. Os nove quadros cinematográficos continuam nos prólogos. O posto de comando tem mapa persistente em Canvas 2D, comunicações e ordens resolvidas por turnos. Publicação em [GitHub Pages](https://jonatanoficial-bit.github.io/ultima-linha-1944/?v=0.5.0).
+Jogo de comando tático e narrativa em 1944. A edição 0.6 acrescenta retratos de Brooks, Ward e Turner, memória persistente das decisões, relações por canal, figuras no campo e marcas dos contatos. Mantém postos de comando nas três campanhas e execução das ordens com pausa, aceleração e repetição. Os nove quadros cinematográficos continuam nos prólogos. O posto de comando tem mapa persistente em Canvas 2D, comunicações e ordens resolvidas por turnos. Publicação em [GitHub Pages](https://jonatanoficial-bit.github.io/ultima-linha-1944/?v=0.6.0).
 
 > Em desenvolvimento. A Bíblia Mestra permanece a referência de conteúdo e regras. Esta versão implementa uma etapa jogável, não a totalidade do Lote 1. Consulte a [matriz de aderência](docs/bible-audit-0.3.md) para as diferenças e pendências.
 
@@ -34,4 +34,6 @@ No campo, **F** alterna foco no mapa, **1–5** selecionam formações, **R/O/J*
 
 ## Imersão em duas partes
 
-A primeira parte reúne posto → chamada → decisão → campo → execução → relatório. O mapa ocupa o centro da interface, com painéis sob demanda. O estado é salvo antes da apresentação, e pular/rever não muda os resultados. Partidas 0.3/0.4 continuam compatíveis. Leia o [plano e a parte restante](docs/immersion-plan.md) e a [auditoria 0.5](docs/bible-audit-0.5.md).
+A primeira parte reúne posto → chamada → decisão → campo → execução → relatório. O mapa ocupa o centro da interface, com painéis sob demanda. O estado é salvo antes da apresentação, e pular/rever não muda os resultados. Partidas 0.3/0.4 continuam compatíveis. Leia o [plano em duas partes](docs/immersion-plan.md) e a [auditoria 0.6](docs/bible-audit-0.6.md).
+
+A parte 2 inclui os três [retratos gerados por IA](docs/portrait-production-0.6.md). Apenas as gravações de áudio ficam para produção futura; os [sete prompts e instruções de inserção](docs/audio-production-prompts.md) acompanham esta entrega.

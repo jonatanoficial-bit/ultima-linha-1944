@@ -12,12 +12,12 @@ Escopo: os seis pontos discutidos com o autor (posto físico, campo com vida, pe
 - Sons procedurais discretos de movimento, serviço, comunicação e contato, somente quando o jogador ativa áudio. Sem dublagem ou efeitos gravados anunciados como existentes.
 - Compatibilidade com saves 0.3 e 0.4 no mesmo slot v3. Repetição visual do último turno disponível enquanto a sessão está aberta; após recarregar, o diário persiste, mas não a animação.
 
-## Parte 2 — campo vivo e presença individual (pendente)
+## Parte 2 — edição 0.6 · Rostos da linha
 
-Esta é a **única parte restante do plano de imersão**, agrupada para evitar pequenas entregas fragmentadas:
+Concluída no escopo descrito na [auditoria 0.6](bible-audit-0.6.md). A produção das gravações de som foi adiada pelo autor; integração, controles e [prompts](audio-production-prompts.md) estão preparados. Escopo acordado:
 
 1. Direção visual final dos três campos, sprites próprios de unidades e veículos, animações por domínio, danos persistentes e variação ambiental ligada à situação. A carta Cedar continua fictícia conforme a Bíblia; referência histórica não vira localização documental falsa.
-2. Retratos canônicos ainda pendentes (incluindo Brooks, Ward e Turner), presença recorrente e consequências individuais das decisões. Não reutilizar o retrato de outro personagem como se fosse o interlocutor.
+2. Retratos canônicos de Brooks, Ward e Turner, presença recorrente e consequências individuais das decisões. Não reutilizar o retrato de outro personagem como se fosse o interlocutor.
 3. Reações de narrativa ligadas a perdas, socorro, confiança e ordens anteriores; acabamento das chamadas recebidas e efetuadas.
 4. Som por ambiente e situação com mixagem, transições, controles e revisão de acessibilidade; acabamento visual e de interação nos três domínios e em telas pequenas.
 

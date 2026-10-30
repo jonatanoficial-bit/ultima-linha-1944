@@ -14,6 +14,7 @@ export function communicationScene(branch: BranchId, sender: string) {
   return /máquinas|enferm/i.test(sender) ? 'NAV_CIN02' : 'NAV_CIN03';
 }
 export function communicationRole(sender: string) {
+  if (/Turner/.test(sender)) return 'Cabo · operador de rádio da companhia';
   if (/Brooks/.test(sender)) return 'Primeiro-sargento · organização da companhia';
   if (/Ward/.test(sender)) return 'Oficial médica agregada · posto médico';
   if (/Reed/.test(sender)) return 'Comando de batalhão · escalão superior';

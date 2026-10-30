@@ -184,6 +184,7 @@ export const operationalCommand = (
       return reject("Faltam recursos para cumprir esta resposta.");
     effect(s, option.effects);
     o.decisions.push(e.id);
+    (o.decisionRecords ??= []).push({eventId:e.id,choiceId:option.id,turn:s.currentTurn});
     log(s, `${e.from}: ${option.label}. ${option.consequence}`);
   } else {
     if (pendingEvent(s))
@@ -468,6 +469,7 @@ export const tickOperation = (state: GameState, events: TurnEvent[] = []): GameS
         enemy.ammunition = Math.max(0, (enemy.ammunition ?? 0) - 1);
         const loss = hit ? Math.min(target.strength, 1) : 0;
         target.strength -= loss;
+        if (loss) { const sites=o.damageSites ??= []; if (!sites.some(p=>p.x===target.x&&p.y===target.y)) sites.push({x:target.x,y:target.y,turn:s.currentTurn}); o.damageSites=sites.slice(-80); }
         s.personnel.capable -= loss;
         s.personnel.wounded += loss;
         if (hit && s.campaignId === "navy") {

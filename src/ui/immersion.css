@@ -1,0 +1,100 @@
+/* A physical command station surrounds the tactical instrument. */
+.screen-game { background: #09100e; }
+.screen-game::before { opacity: .48; }
+.station-stage { position: absolute; inset: 70px 0 76px; isolation: isolate; overflow: hidden; }
+.station-backdrop, .station-shade { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -2; object-fit: cover; object-position: center 40%; }
+.station-shade { z-index: -1; background: linear-gradient(180deg,#07100d70,transparent 30%,#08110fc2 65%,#08110ff5),linear-gradient(90deg,#07100b85,transparent 75%); }
+.station-location { margin: clamp(22px,4vw,65px); text-shadow: 0 2px 12px #000; }
+.station-location h1 { font: clamp(30px,4vw,54px)/1.1 Georgia,serif; font-weight: normal; margin: 13px 0; }
+.station-location p { font-size: 12px; color: #e0d8c3; }
+.station-brief { position: absolute; bottom: 132px; left: 4vw; width: min(600px,80%); text-shadow: 0 2px 8px #000; }
+.station-brief p { font: clamp(18px,2vw,25px)/1.5 Georgia,serif; margin: 12px 0; }
+.station-condition { font: 11px 'Courier New',monospace; color: #d7c69f; }
+.station-actions { position: absolute; bottom: 24px; left: 4vw; right: 4vw; display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 12px; }
+.station-action { text-align: left; background: #101d1ce8; border: 1px solid #d6ba804f; padding: 17px 20px; backdrop-filter: blur(7px); }
+.station-action small { display: block; font: 9px 'Courier New',monospace; letter-spacing: 1.3px; margin-bottom: 10px; }
+.station-action strong { font: 18px Georgia,serif; }
+.station-action.calling { border-color: #d2b46a; box-shadow: inset 3px 0 #d2b46a; }
+.station-view.screen-game .command-layout { visibility: hidden; }
+.station-view .command-bar, .station-view .turn-bar { background: #0a1514eb; }
+.station-toggle { color: #e8ca88; border: 1px solid #cab57d4d; }
+.station-view .resource-strip { opacity: .8; }
+.field-focus .map-column { padding: 12px 3vw 8px; }
+.field-focus .tactical-map { border: 7px solid #3e3a2f; outline: 1px solid #b4a0755e; box-shadow: 0 9px 28px #0009,inset 0 0 60px #0004; }
+.field-focus .map-toolbar { min-height: 36px; }
+.field-focus .map-caption { color: #b6b6a0; }
+.call-scene { position: relative; height: 205px; margin: -3px -6px 22px; overflow: hidden; }
+.call-scene img { width: 100%; height: 100%; object-fit: cover; object-position: center 42%; }
+.call-scene::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent,#0c171aeb); }
+.call-scene > div { position: absolute; z-index: 1; left: 22px; right: 20px; bottom: 18px; }
+.call-scene .speaker { font: 27px Georgia,serif; margin: 10px 0 6px; }
+.call-scene > div > span:last-child { font-size: 11px; color: #d7d4c5; }
+.command-dialog:has(.call-scene) { width: min(900px,94vw); background: #111c1e; }
+.command-dialog:has(.call-scene) .dialogue { font: clamp(18px,2vw,24px)/1.5 Georgia,serif; }
+.call-memory { margin: 8px 0 20px; color: #b8c1b5; font-size: 11px; border-block: 1px solid #c2b57b30; padding: 12px 0; }
+.call-memory summary { cursor: pointer; color: #d2bd88; }
+.call-memory p { margin: 10px 0 0; }
+.call-signal { display: flex; align-items: center; gap: 5px; height: 15px; margin-bottom: 16px; }
+.call-signal i { display: block; background: #c9b478; width: 3px; height: 3px; }
+.call-signal i:nth-child(3n) { height: 13px; }.call-signal i:nth-child(2n) { height: 8px; }
+.formation-picker { display: grid; gap: 8px; }
+.execution-hud { position: absolute; z-index: 8; bottom: 22px; left: 50%; transform: translateX(-50%); width: min(740px,94%); padding: 18px 24px 12px; background: #0a1516f5; border: 1px solid #c9b07770; box-shadow: 0 15px 50px #000a; }
+.execution-copy p { font: 20px/1.35 Georgia,serif; margin: 9px 0 12px; min-height: 27px; }
+.execution-progress { display: block; width: 100%; height: 3px; accent-color: #d5b36b; margin: 0 0 12px; }
+.execution-hud nav { display: flex; gap: 6px; }
+.execution-hud button { font-size: 11px; }
+.execution-hud nav button:last-child { margin-left: auto; }
+.execution-hud > small { display: block; color: #9da99e; font-size: 9px; margin-top: 10px; }
+.executing .turn-bar, .executing .field-notice, .executing .incoming-banner, .executing .map-caption { visibility: hidden; }
+.executing .field-notice, .executing .incoming-banner, .executing .map-caption { display: none; }
+.executing .map-toolbar button { opacity: .25; }
+.executing .command-layout { padding-bottom: 100px; }
+@media (max-width:800px) {
+  .station-stage { inset: 65px 0 85px; }
+  .station-location { margin: 24px 20px; }
+  .station-location .eyebrow { font-size: 8px; }
+  .station-location h1 { font-size: 32px; }
+  .station-location p { max-width: 270px; font-size: 10px; }
+  .station-actions { left: 20px; right: 20px; bottom: 16px; gap: 7px; grid-template-columns: 1fr; }
+  .station-action { padding: 10px 14px; min-height: 60px; }
+  .station-action small { font-size: 8px; margin-bottom: 5px; }
+  .station-action strong { font-size: 16px; }
+  .station-brief { left: 20px; bottom: 230px; width: calc(100% - 40px); }
+  .station-brief p { font-size: 18px; line-height: 1.35; }
+  .station-condition { font-size: 10px; }
+  .station-view .command-bar .clock { display: none; }
+  .field-focus .map-column { padding: 8px 9px 6px; }
+  .field-focus .tactical-map { border-width: 3px; }
+  .map-toolbar { gap: 3px; flex-wrap: wrap; }
+  .map-toolbar > span { flex: 1 0 100%; }
+  .map-toolbar > div { display: flex; flex-wrap: wrap; }
+  .call-scene { height: 150px; }
+  .call-scene > div { left: 12px; bottom: 12px; }
+  .call-scene .speaker { font-size: 20px; }
+  .command-dialog:has(.call-scene) .dialogue { font-size: 18px; }
+  .execution-hud { bottom: 12px; padding: 12px; }
+  .execution-copy p { font-size: 17px; }
+  .execution-hud button { padding: 8px; font-size: 10px; }
+  .execution-hud nav { gap: 3px; }
+  .executing .command-layout { padding-bottom: 115px; }
+}
+@media (max-height:600px) {
+  .station-stage { overflow-y: auto; }
+  .station-location { margin: 15px 20px; }
+  .station-location h1 { font-size: 26px; }
+  .station-location p { display: none; }
+  .station-brief { position: static; margin: 20px; width: auto; }
+  .station-brief p { font-size: 17px; }
+  .station-actions { position: relative; left: auto; right: auto; bottom: auto; margin: 20px; grid-template-columns: repeat(3,1fr); }
+  .station-action { padding: 10px; }
+  .station-action strong { font-size: 14px; }
+  .execution-copy p { font-size: 16px; margin: 6px 0; }
+  .execution-hud { padding: 10px; bottom: 4px; }
+  .execution-hud > small { display: none; }
+  .executing .command-layout { padding-bottom: 75px; }
+}
+@media (max-width:800px) {
+  .bar-actions .station-toggle { display: inline-flex; font-size: 10px; padding: 8px; }
+  .command-bar { gap: 8px; }
+  .operation-name .eyebrow { font-size: 8px; letter-spacing: 1px; }
+}

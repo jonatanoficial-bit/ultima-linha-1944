@@ -21,6 +21,10 @@ import { cinematicFor, cinematicUrl, CINEMATICS, narrativePlan, narrativeQuestio
 import { CinematicStage } from "./cinematic-stage";
 import { GameAudio } from "./game-audio";
 import "./cinematic.css";
+import { stations, sceneUrl, communicationScene, communicationRole } from "../content/stations";
+import { TurnDirector } from "./turn-director";
+import type { TurnEvent } from "../core/turn-events";
+import "./immersion.css";
 
 const app = document.querySelector<HTMLElement>("#app")!;
 const missions = MISSIONS.filter((m) => m.campaignId !== "lab");
@@ -31,7 +35,8 @@ let story = newNarrative(),
   storyAuto = false,
   storyReady = false,
   storyHidden = false,
-  fieldFocus = false,
+  fieldFocus = true,
+  stationView = true,
   drawerOpen = false,
   selected = "hq",
   target: Point | undefined,
@@ -44,6 +49,9 @@ let modalAction: (() => void) | undefined,
 let storyTimer: number | undefined;
 const cinema = new CinematicStage();
 const gameAudio = new GameAudio();
+let director: TurnDirector | undefined;
+let lastPlayback: { before: GameState; events: TurnEvent[] } | undefined;
+let playbackCue = -1;
 const clearStoryTimer = () => { window.clearTimeout(storyTimer); storyTimer = undefined; };
 function scheduleStory() {
   clearStoryTimer();
@@ -97,6 +105,7 @@ const orderLabels: Record<UnitOrder, string> = {
 const btn = (action: string, text: string, cls = "", extra = "") =>
   `<button type="button" data-action="${action}" class="${cls}" ${extra}>${text}</button>`;
 const map = new CommandMap((p, id) => {
+  if (director) return;
   if (id) {
     selected = id;
     target = undefined;
@@ -191,6 +200,12 @@ function modal(title: string, body: string, footer = "", kind = "info") {
   });
   el.showModal();
   (el.querySelector("footer button") as HTMLElement)?.focus();
+  if (kind === "incoming") {
+    const heading = el.querySelector<HTMLElement>("h2")!;
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+    el.scrollTop = 0;
+  }
 }
 function closeModal() {
   document.querySelector("#command-dialog")?.remove();
@@ -216,13 +231,14 @@ function incoming() {
   beep();
   modal(
     e.title,
-    `<div class="radio-stamp">● CHAMADA PRIORITÁRIA · T${e.turn}</div><p class="speaker">${esc(e.from)}</p><p class="dialogue">${esc(e.text)}</p><div class="decision-list">${e.choices.map((c) => btn("decision", `<strong>${esc(c.label)}</strong><span>${esc(c.consequence)}</span><small>${esc(effectText(c.effects))}</small>`, "decision", `data-id="${c.id}"`)).join("")}</div>`,
-    btn("close", "Consultar o mapa"),
+    `<div class="call-scene"><img src="${sceneUrl(communicationScene(game.campaignId, e.from))}" alt="Ambiente da comunicação"><div><span class="radio-stamp">● COMUNICAÇÃO PRIORITÁRIA · T${e.turn}</span><p class="speaker">${esc(e.from)}</p><span>${esc(communicationRole(e.from))}</span></div></div><div class="call-signal" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p class="dialogue">${esc(e.text)}</p><details class="call-memory"><summary>Registro e confiança do comando · ${game.operation!.trust}%</summary><p>Registro compartilhado da companhia.</p>${game.log.filter(l => game!.operation!.definition.events.some(previous => previous.from === e.from && game!.operation!.decisions.includes(previous.id) && l.text.startsWith(previous.from + ":"))).slice(-3).map(l => `<p>T${l.turn} · ${esc(l.text)}</p>`).join("") || "<p>Sem decisões anteriores registradas neste canal.</p>"}</details><div class="decision-list">${e.choices.map((c) => btn("decision", `<strong>${esc(c.label)}</strong><span>${esc(c.consequence)}</span><small>${esc(effectText(c.effects))}</small>`, "decision", `data-id="${c.id}"`)).join("")}</div>`,
+    btn("to-field", "Consultar o mapa"),
     "incoming",
   );
 }
 function execute(command: Command) {
-  if (!game) return;
+  if (!game || director) return;
+  const before = game;
   const transition = reduce(game, command);
   if (!transition.accepted) {
     notice = transition.reason ?? "Ordem recusada.";
@@ -233,23 +249,56 @@ function execute(command: Command) {
   notice = "Ordem registrada.";
   save();
   beep();
+  if (command.type === "END_TURN") {
+    lastPlayback = { before, events: transition.events ?? [] };
+    playTurn();
+    return;
+  }
   render();
   if (game.phase === "ended") {
     showOutcome();
     return;
   }
-  if (command.type === "END_TURN") {
-    modal(
-      "Relatório do período",
-      `<p class="eyebrow">${dateLabel()}</p><ul class="report-list">${game.operation!.reports.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>`,
-      btn(
-        "report-next",
-        pendingEvent(game) ? "Atender comunicação" : "Voltar ao comando",
-        "primary",
-      ),
-      "report",
-    );
+  if (command.type === "DECIDE") {
+    const event = before.operation!.definition.events.find(e => e.id === command.eventId)!;
+    const choice = event.choices.find(c => c.id === command.choiceId)!;
+    modal("Sua decisão foi transmitida", `<p class="eyebrow">${esc(event.from)}</p><p class="dialogue">${esc(choice.label)}</p><p>${esc(choice.consequence)}</p><p class="effect-preview">${esc(effectText(choice.effects))}</p><p>Confiança no comando: ${before.operation!.trust}% → ${game.operation!.trust}%</p>`, btn("to-field", "Examinar o campo", "primary") + btn("to-station", "Voltar ao posto"));
   } else incoming();
+}
+function showReport() {
+  if (game!.phase === "ended") { showOutcome(); return; }
+  const before = lastPlayback?.before;
+  const deltas = before ? `Capazes ${before.personnel.capable} → ${game!.personnel.capable} · Feridos ${before.personnel.wounded} → ${game!.personnel.wounded} · Munição ${before.resources.ammo} → ${game!.resources.ammo}` : "";
+  modal("O que aconteceu no campo", `<p class="eyebrow">${dateLabel()}</p><p class="effect-preview">${deltas}</p><ul class="report-list">${game!.operation!.reports.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`, (lastPlayback ? btn("replay", "Rever execução") : "") + btn("report-next", pendingEvent(game!) ? "Atender comunicação" : "Voltar ao comando", "primary"), "report");
+}
+function playTurn() {
+  if (!game || !lastPlayback || director) return;
+  stationView = false; fieldFocus = true; drawerOpen = false; playbackCue = -1;
+  director = new TurnDirector(lastPlayback.before, lastPlayback.events,
+    (state, event, progress) => {
+      map.frame(state, event, progress);
+      const meter = app.querySelector<HTMLProgressElement>(".execution-progress");
+      if (meter) meter.value = progress;
+    },
+    (event, index) => {
+      const label = app.querySelector<HTMLElement>(".execution-copy");
+      if (label) label.innerHTML = `<span class="eyebrow">EXECUÇÃO DO TURNO ${lastPlayback!.before.currentTurn} · ${index+1}/${lastPlayback!.events.length} · ${director?.paused ? "PAUSADA" : "EM CURSO"}</span><p>${esc(event.text)}</p>`;
+      const pause = app.querySelector('[data-action="play-pause"]');
+      if (pause) pause.textContent = director?.paused ? "▶ Continuar" : "Ⅱ Pausar";
+      const speed = app.querySelector('[data-action="play-speed"]');
+      if (speed) speed.textContent = `${director?.speed ?? 1}×`;
+      if (index !== playbackCue) { playbackCue = index; gameAudio.event(event); }
+    },
+    () => { director = undefined; map.endPlayback(); render(); showReport(); });
+  render();
+  map.beginPlayback();
+  director.start();
+}
+function stationMarkup() {
+  const s = game!, station = stations[s.campaignId], event = pendingEvent(s);
+  const key = s.campaignId === "navy" ? "hull" : s.campaignId === "air" ? "runway" : "wire";
+  const condition = s.operation!.systems[key];
+  return `<section class="station-stage" aria-label="${station.title}"><img class="station-backdrop" src="${sceneUrl(station.scene)}" alt="${station.title}"><div class="station-shade"></div><div class="station-location"><span class="eyebrow">${station.location}</span><h1>${station.title}</h1><p>${esc(s.operation!.definition.commander)} · ${esc(s.operation!.definition.rank)}</p></div><div class="station-brief"><span class="eyebrow">SUA RESPONSABILIDADE</span><p>${esc(mission.operationalGoal)}</p><span class="station-condition">${esc(s.operation!.definition.systemLabels[key] ?? key)} ${condition}${key === "wire" ? "/100" : "%"} · ${s.personnel.capable} capazes · ${s.personnel.wounded} feridos</span></div><nav class="station-actions" aria-label="Estações do posto">${btn("to-field", `<small>01 / OPERAÇÕES</small><strong>${station.desk} →</strong>`, "station-action primary")}${btn(event ? "incoming" : "station-radio", `<small>02 / COMUNICAÇÕES ${event ? "· CHAMADA" : ""}</small><strong>${event ? esc(event.from) : "Abrir a rede de rádio"}</strong>`, `station-action ${event ? "calling" : ""}`)}${btn("station-state", '<small>03 / COMPANHIA E MATERIAL</small><strong>Examinar a situação</strong>', 'station-action')}</nav></section>`;
 }
 function showOutcome() {
   modal(
@@ -271,6 +320,8 @@ function start(choice: string) {
   screen = "game";
   panel = "orders";
   drawerOpen = false;
+  stationView = true;
+  lastPlayback = undefined;
   if (story.skipped) game.log.push({ turn: 0, category: "command", text: "Prólogo abreviado com resumo; decisão inicial escolhida explicitamente pelo jogador." });
   notice =
     "Selecione uma formação, indique um destino e emita sua ordem. O tempo só passa ao resolver o turno.";
@@ -320,13 +371,13 @@ function render() {
   closeModal();
   clearStoryTimer();
   if (screen !== "prologue") cinema.leave();
-  app.className = `war-room branch-${mission.campaignId} screen-${screen}${fieldFocus ? " field-focus" : ""}${drawerOpen ? " drawer-open" : ""}`;
+  app.className = `war-room branch-${mission.campaignId} screen-${screen}${fieldFocus ? " field-focus" : ""}${drawerOpen ? " drawer-open" : ""}${stationView ? " station-view" : ""}${director ? " executing" : ""}`;
   app.style.setProperty(
     "--theatre",
     `url("${new URL(assetUrl(mission.visuals.backdrop), document.baseURI).href}")`,
   );
   if (screen === "menu") {
-    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar operação", "primary") : ""}${btn("new", hasSave() ? "Nova operação" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p></aside><footer class="title-footer"><span>Campanhas locais · progresso salvo neste navegador</span><span>EDIÇÃO 0.4 / SOB SEU COMANDO</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
+    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar operação", "primary") : ""}${btn("new", hasSave() ? "Nova operação" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p></aside><footer class="title-footer"><span>Campanhas locais · progresso salvo neste navegador</span><span>EDIÇÃO 0.5 / O PESO DA ORDEM</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
     app
       .querySelector(".title-actions")!
       .insertAdjacentHTML(
@@ -345,7 +396,7 @@ function render() {
     event = pendingEvent(s),
     unit = o.units.find((u) => u.id === selected) ?? o.units[0];
   selected = unit.id;
-  app.innerHTML = `<header class="command-bar"><div class="operation-name"><span class="eyebrow">${branchName[s.campaignId]} / ${s.phase === "ended" ? "ENCERRADA" : "EM OPERAÇÃO"}</span><strong>${d.title}</strong></div><div class="clock"><strong>${dateLabel()}</strong><span>TURNO ${Math.min(s.currentTurn, s.maxTurns)} / ${s.maxTurns} · ${d.weather}</span></div><div class="bar-actions">${btn("sound", sound ? "♪ Som ligado" : "♪ Som desligado", "quiet", `aria-pressed="${sound}"`)}${btn("fullscreen", "⛶", "icon", 'aria-label="Alternar tela cheia"')}${btn("pause", "II", "icon", 'aria-label="Pausar e abrir menu"')}</div></header>
+  app.innerHTML = `<header class="command-bar"><div class="operation-name"><span class="eyebrow">${branchName[s.campaignId]} / ${s.phase === "ended" ? "ENCERRADA" : "EM OPERAÇÃO"} · T${Math.min(s.currentTurn,s.maxTurns)}</span><strong>${d.title}</strong></div><div class="clock"><strong>${dateLabel()}</strong><span>TURNO ${Math.min(s.currentTurn, s.maxTurns)} / ${s.maxTurns} · ${d.weather}</span></div><div class="bar-actions">${btn("sound", sound ? "♪ Som ligado" : "♪ Som desligado", "quiet", `aria-pressed="${sound}"`)}${btn("fullscreen", "⛶", "icon", 'aria-label="Alternar tela cheia"')}${btn("pause", "II", "icon", 'aria-label="Pausar e abrir menu"')}</div></header>
   <main class="command-layout"><aside class="roster"><div class="section-label">SEU COMANDO</div><p class="commander-name">${esc(d.commander)}<small>${esc(d.rank)}</small></p><div class="formation-list">${o.units.map((u) => btn("unit", `<span class="unit-symbol">${s.campaignId === "navy" ? "≋" : "⊠"}</span><span><strong>${esc(u.name)}</strong><small>${u.strength} capazes · ${u.x},${u.y}</small><small>${orderLabels[u.order]}${u.target ? ` → ${u.target.x},${u.target.y}` : ""}</small></span>`, u.id === selected ? "formation active" : "formation", `data-id="${u.id}" aria-pressed="${u.id === selected}"`)).join("")}</div><div class="roster-bottom"><span class="eyebrow">OBJETIVO</span><p>${esc(mission.operationalGoal)}</p><span class="coords">REFERÊNCIA ${d.objective.x} / ${d.objective.y}</span></div></aside>
   <section class="map-column" aria-label="Teatro de operações"><div class="map-toolbar"><span>◈ CARTA TÁTICA <small>${observedEnemies(s).length} contatos observados</small></span><div>${btn("zoom-out", "−", "icon", 'aria-label="Reduzir mapa"')}${btn("zoom-in", "+", "icon", 'aria-label="Ampliar mapa"')}${btn("recenter", "⌖", "icon", 'aria-label="Recentrar mapa"')}${btn("history", "Arquivo", "quiet")}${btn("field-focus", fieldFocus ? "HUD" : "Foco", "quiet focus-toggle", `aria-pressed="${fieldFocus}" aria-label="Alternar foco no mapa"`)}${btn("drawer", drawerOpen ? "Fechar ordens" : "Ordens", "quiet drawer-controls", `aria-expanded="${drawerOpen}"`)}</div></div><div id="tactical-map" class="tactical-map"></div><div class="map-caption"><span>▨ FORMAÇÕES · <b>□ OBJETIVO</b> · SOMBRA: SEM OBSERVAÇÃO</span><span>Arraste para navegar</span></div>${event ? `<button class="incoming-banner" data-action="incoming"><span class="signal-dot"></span><span><strong>Comunicação aguardando resposta</strong><small>${esc(event.from)} — ${esc(event.title)}</small></span><b>ATENDER →</b></button>` : ""}<div class="field-notice" role="status">${esc(notice || "Aguardando suas ordens.")}</div></section>
   <aside class="orders-panel"><div class="drawer-heading"><span>POSTO DE COMANDO</span>${btn("drawer", "×", "quiet", 'aria-label="Fechar painel de comando"')}</div><nav class="panel-tabs" aria-label="Painéis de comando">${[
@@ -375,9 +426,16 @@ function render() {
     .join(
       "",
     )}</div><div class="turn-control"><div class="command-points" aria-label="${s.commandAP} pontos de comando"><span>COMANDO</span><b>${"◆".repeat(s.commandAP)}${"◇".repeat(3 - s.commandAP)}</b></div>${btn(s.phase === "ended" ? "outcome" : "end", s.phase === "ended" ? "Relatório final" : `Resolver turno <span>+${mission.turnLabel} →</span>`, "primary end-turn")}</div></footer>`;
+  app.querySelector('.bar-actions')?.insertAdjacentHTML('afterbegin', btn("station", stationView ? "Mapa" : "Posto", "quiet station-toggle"));
+  app.querySelector('.map-toolbar > div')?.insertAdjacentHTML('afterbegin', btn("formations", "Formações", "quiet"));
+  if (stationView) app.insertAdjacentHTML("beforeend", stationMarkup());
+  if (director) {
+    app.insertAdjacentHTML("beforeend", `<section class="execution-hud" aria-label="Execução das ordens"><div class="execution-copy" aria-live="polite"></div><progress class="execution-progress" value="0" max="1" aria-label="Progresso do acontecimento"></progress><nav aria-label="Controles de execução">${btn("play-pause", "Ⅱ Pausar")}${btn("play-next", "Próximo")}${btn("play-speed", "1×", "quiet", 'aria-label="Velocidade da execução"')}${btn("play-skip", "Ir ao relatório →", "primary")}</nav><small>A execução apresenta o turno já resolvido. Pular não altera o resultado.</small></section>`);
+    app.querySelectorAll<HTMLButtonElement>('button').forEach(b => { if (!b.dataset.action?.startsWith('play-')) b.disabled = true; });
+  }
   map.mount(
     document.querySelector<HTMLElement>("#tactical-map")!,
-    s,
+    director && lastPlayback ? lastPlayback.before : s,
     selected,
     target,
   );
@@ -515,6 +573,7 @@ function download() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 app.addEventListener("submit", (e) => {
+  if (director) { e.preventDefault(); return; }
   if ((e.target as HTMLElement).id !== "coordinates") return;
   e.preventDefault();
   const data = new FormData(e.target as HTMLFormElement);
@@ -528,6 +587,23 @@ app.addEventListener("click", async (e) => {
   if (!el || el.disabled) return;
   const action = el.dataset.action,
     id = el.dataset.id;
+  if (director) {
+    if (action === "play-pause") director.togglePause();
+    if (action === "play-speed") director.toggleSpeed();
+    if (action === "play-next") director.next();
+    if (action === "play-skip") director.skip();
+    return;
+  }
+  if (action === "station") { stationView = !stationView; drawerOpen = false; render(); return; }
+  if (action === "to-station") { stationView = true; drawerOpen = false; render(); return; }
+  if (action === "to-field") { stationView = false; drawerOpen = false; render(); return; }
+  if (action === "station-radio" || action === "station-state") {
+    stationView = false; drawerOpen = true; panel = action === "station-radio" ? "radio" : "state"; render(); return;
+  }
+  if (action === "formations") {
+    modal("Formações sob seu comando", `<div class="formation-picker">${game!.operation!.units.map(u => btn("unit", `<strong>${esc(u.name)}</strong><span>${esc(u.role)} · ${u.strength} capazes · posição ${u.x},${u.y}</span><small>${orderLabels[u.order]}</small>`, "decision", `data-id="${u.id}" ${u.strength <= 0 ? "disabled" : ""}`)).join("")}</div>`); return;
+  }
+  if (action === "replay") { closeModal(); playTurn(); return; }
   if (action === "close") {
     closeModal();
     return;
@@ -576,6 +652,8 @@ app.addEventListener("click", async (e) => {
         mission,
       );
       screen = "game";
+      stationView = true;
+      lastPlayback = undefined;
       selected = game.operation!.units[0].id;
       drawerOpen = false;
       target = undefined;
@@ -660,6 +738,8 @@ app.addEventListener("click", async (e) => {
           "Substituir a partida local?",
           `<p>Importar ${esc(mission.title)}, turno ${loaded.currentTurn}. A partida atual desta carreira será substituída.</p>`,
           () => {
+            lastPlayback = undefined;
+            stationView = true;
             game = loaded;
             screen = "game";
             selected = game.operation!.units[0].id;
@@ -698,6 +778,7 @@ app.addEventListener("click", async (e) => {
     return;
   }
   if (action === "unit") {
+    stationView = false;
     drawerOpen = true;
     selected = id!;
     target = undefined;
@@ -806,6 +887,12 @@ app.addEventListener("click", async (e) => {
 });
 document.addEventListener("keydown", (e) => {
   if (e.defaultPrevented || e.repeat) return;
+  if (director) {
+    if ((e.target as HTMLElement).closest('button')) return;
+    if (e.key === 'Escape' || e.key === ' ') { e.preventDefault(); director.togglePause(); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); director.next(); }
+    return;
+  }
   if (screen === "prologue" && !document.querySelector("dialog") && !(e.target as HTMLElement).closest("button,input,textarea,select")) {
     if (e.key === " " || e.key === "ArrowRight" || e.key === "Enter") { e.preventDefault(); moveStory({ type: "next" }); }
     else if (e.key === "ArrowLeft") { e.preventDefault(); moveStory({ type: "back" }); }
@@ -822,16 +909,18 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     pause();
   } else if (["r", "o", "j"].includes(e.key.toLowerCase())) {
+    stationView = false;
     drawerOpen = true;
     panel = { r: "radio", o: "orders", j: "journal" }[e.key.toLowerCase()]!;
     render();
   } else if (e.key.toLowerCase() === "f") {
+    stationView = false;
     fieldFocus = !fieldFocus;
     drawerOpen = false;
     render();
   } else if (/^[1-5]$/.test(e.key)) {
     const unit = game?.operation?.units[Number(e.key) - 1];
-    if (unit) { selected = unit.id; target = undefined; drawerOpen = true; render(); }
+    if (unit) { stationView = false; selected = unit.id; target = undefined; drawerOpen = true; render(); }
   } else if (e.key === "Enter") {
     e.preventDefault();
     document.querySelector<HTMLButtonElement>('[data-action="end"]')?.click();

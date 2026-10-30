@@ -14,6 +14,7 @@ import type {
   Terrain,
 } from "./operations-types";
 import { nextRandom } from "./rng";
+import type { TurnEvent } from "./turn-events";
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
 export const createOperation = (d: OperationDefinition): OperationState => ({
@@ -301,15 +302,16 @@ export const operationalCommand = (
   return { accepted: true, state: s };
 };
 
-export const tickOperation = (state: GameState): GameState => {
+export const tickOperation = (state: GameState, events: TurnEvent[] = []): GameState => {
   const s = structuredClone(state);
   const o = s.operation!;
   const d = o.definition;
   const nextTurn = s.currentTurn + 1;
   o.reports = [];
-  const report = (t: string) => {
+  const report = (t: string, kind: TurnEvent["kind"] = "status") => {
     o.reports.push(t);
     log(s, t);
+    events.push({ kind, text: t });
   };
   for (const task of o.tasks.filter((t) => t.eta <= nextTurn)) {
     const a = d.actions.find((x) => x.id === task.actionId)!;
@@ -319,11 +321,11 @@ export const tickOperation = (state: GameState): GameState => {
     ) {
       effect(s, { stats: { morale: -6 }, systems: { sorties: 1 } });
       report(
-        "Reconhecimento concluído; uma aeronave não retornou. A célula foi retirada da disponibilidade.",
+        "Reconhecimento concluído; uma aeronave não retornou. A célula foi retirada da disponibilidade.", "work",
       );
     } else {
       effect(s, a.effects);
-      report(`${a.label}: concluído. ${a.description}`);
+      report(`${a.label}: concluído. ${a.description}`, "work");
     }
   }
   o.tasks = o.tasks.filter((t) => t.eta > nextTurn);
@@ -337,13 +339,13 @@ export const tickOperation = (state: GameState): GameState => {
         msg.eta++;
         msg.text =
           "Portador retido: acesso sem cobertura. A entrega aguarda uma rota protegida.";
-        report(msg.text);
+        report(msg.text, "radio");
         continue;
       }
       effect(s, { resources: msg.cargo });
       msg.status = "delivered";
       msg.text = "Portador chegou. Material entregue e registrado no estoque.";
-      report(`${contact.name}: ${msg.text}`);
+      report(`${contact.name}: ${msg.text}`, "radio");
       continue;
     }
     const reliable =
@@ -354,7 +356,7 @@ export const tickOperation = (state: GameState): GameState => {
       msg.status = "failed";
       msg.text =
         "Transmissão perdida. Repare o rádio ou retransmita em outro turno.";
-      report(`${contact.name}: ${msg.text}`);
+      report(`${contact.name}: ${msg.text}`, "radio");
       continue;
     }
     if (msg.topic === "advice") {
@@ -393,7 +395,7 @@ export const tickOperation = (state: GameState): GameState => {
         msg.text = `Autorização parcial. Portador previsto T${msg.eta}; material ainda não recebido.`;
       }
     }
-    report(`${contact.name}: ${msg.text}`);
+    report(`${contact.name}: ${msg.text}`, "radio");
   }
   for (const u of o.units) {
     if (u.strength <= 0) continue;
@@ -409,18 +411,22 @@ export const tickOperation = (state: GameState): GameState => {
         : 4;
       let steps = 0,
         budget = speed;
+      const travelled: Point[] = [{ x: u.x, y: u.y }];
       for (const p of path) {
         const cost = terrainAt(d, p) === "forest" ? 2 : 1;
         if (budget < cost) break;
         u.x = p.x;
         u.y = p.y;
+        travelled.push({ ...p });
         budget -= cost;
         steps++;
       }
-      if (steps)
+      if (steps) {
         report(
           `${u.name}: avançou ${steps} quadrícula(s), posição ${u.x},${u.y}.`,
         );
+        Object.assign(events[events.length - 1], { kind: "move", unitId: u.id, path: travelled });
+      }
       if (naval && steps)
         o.systems.fuel = Math.max(
           0,
@@ -449,6 +455,8 @@ export const tickOperation = (state: GameState): GameState => {
     if (target && s.currentTurn >= 3) {
       const distance = Math.hypot(target.x - enemy.x, target.y - enemy.y);
       if (distance <= 5) {
+        const sourceVisible = observedEnemies(s).some(e => e.id === enemy.id);
+        const incomingFire = (enemy.ammunition ?? 0) > 0;
         const cover =
           terrainAt(d, target) === "forest" ||
           terrainAt(d, target) === "village" ||
@@ -481,6 +489,11 @@ export const tickOperation = (state: GameState): GameState => {
           report(
             `${target.name}: contato, 1 ferido; cobertura ${cover ? "efetiva" : "insuficiente"}.`,
           );
+        // Hidden attackers never expose their coordinates through the presentation channel.
+        const contactText = `${target.name}: ${incomingFire ? "sob fogo" : spend ? "fogo de resposta" : "contato sem disparos"}${loss ? "; 1 ferido" : "; sem novos feridos"}.`;
+        if (!loss) report(contactText);
+        events.pop(); // Replace the generic report card with its spatial receipt.
+        events.push({ kind: "contact", text: contactText, unitId: target.id, position: { x: target.x, y: target.y }, source: sourceVisible ? { x: enemy.x, y: enemy.y } : undefined, strength: target.strength, incomingFire, returningFire: spend > 0 });
       } else enemy.target = { x: target.x, y: target.y };
     }
     if (s.currentTurn >= 3) {
@@ -527,6 +540,9 @@ export const tickOperation = (state: GameState): GameState => {
         .reduce((n, e) => n + e.strength, 0) *
         0.7,
   );
+  if (state.operation!.systems.hull !== o.systems.hull && s.campaignId === "navy")
+    events.push({ kind: "status", text: `Casco ${o.systems.hull}% · alagamento ${o.systems.flooding}%.`, position: { x: o.units[0].x, y: o.units[0].y } });
+  if (held) events.push({ kind: "status", text: `Objetivo protegido neste período · ${o.objectiveTurns} período(s) acumulados.`, position: { ...d.objective } });
   if (!o.reports.length)
     report(
       "Vigias completaram o período. Ordens mantidas, consumo e observação atualizados.",

@@ -1,4 +1,5 @@
-/** Quiet procedural ambience. No recorded dialogue, network requests or autoplay. */
+import type { TurnEvent } from "../core/turn-events";
+/** Quiet procedural ambience and event cues. No recorded dialogue or autoplay. */
 export class GameAudio {
   private context?: AudioContext;
   private bed?: AudioBufferSourceNode;
@@ -45,5 +46,23 @@ export class GameAudio {
     osc.connect(gain).connect(context.destination);
     osc.start(); osc.stop(context.currentTime + .18);
     osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+  }
+  event(event: TurnEvent) {
+    if (!this.active || !this.context || document.hidden) return;
+    if (event.kind === 'radio') { this.signal(); return; }
+    if (event.kind === 'status') return;
+    if (event.kind === 'contact' && !event.incomingFire && !event.returningFire) return;
+    const context = this.context;
+    const duration = event.kind === 'move' ? .7 : .35;
+    const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate);
+    const samples = buffer.getChannelData(0);
+    for (let i=0;i<samples.length;i++) samples[i] = (Math.random()*2-1) * Math.exp(-i / (samples.length*.25));
+    const source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain();
+    source.buffer = buffer;
+    filter.type = 'lowpass';
+    filter.frequency.value = event.kind === 'contact' ? 260 : event.kind === 'work' ? 1100 : 650;
+    gain.gain.value = event.kind === 'contact' ? .12 : .045;
+    source.connect(filter).connect(gain).connect(context.destination);
+    source.start(); source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
   }
 }

@@ -196,7 +196,7 @@ export const createInitialState = (
     });
   }
   const initial: GameState = {
-    gameVersion: "0.4.0",
+    gameVersion: "0.5.0",
     operation: mission.operation
       ? createOperation(mission.operation)
       : undefined,
@@ -465,8 +465,9 @@ export const reduce = (state: GameState, command: Command): Transition => {
     return { accepted: true, state: next };
   }
 
+  const events: import("./turn-events").TurnEvent[] = [];
   const resolved = state.operation
-    ? tickOperation(state)
+    ? tickOperation(state, events)
     : resolveEnemyTurn(state);
   const afterTurn = {
     ...resolved,
@@ -492,5 +493,5 @@ export const reduce = (state: GameState, command: Command): Transition => {
         `Turno ${afterTurn.currentTurn} iniciado. Pontos de comando restaurados.`,
       );
   assertState(finished);
-  return { accepted: true, state: finished };
+  return { accepted: true, state: finished, events };
 };

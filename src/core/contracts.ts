@@ -172,6 +172,7 @@ export interface Transition {
   accepted: boolean;
   state: GameState;
   reason?: string;
+  events?: import("./turn-events").TurnEvent[];
 }
 
 export interface SaveFile {

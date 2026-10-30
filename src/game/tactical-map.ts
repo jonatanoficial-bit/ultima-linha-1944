@@ -1,6 +1,7 @@
 import type { GameState } from "../core/contracts";
 import type { Point, Terrain } from "../core/operations-types";
 import { observedEnemies, pathTo, terrainAt } from "../core/operations-engine";
+import { pointOnRoute, type TurnEvent } from "../core/turn-events";
 
 /** One persistent canvas: camera and terrain survive HUD updates. */
 export class CommandMap {
@@ -16,6 +17,33 @@ export class CommandMap {
   private height = 600;
   private down?: { x: number; y: number; px: number; py: number };
   private moved = false;
+  private event?: TurnEvent;
+  private progress = 0;
+  private reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  private savedCamera?: { zoom: number; pan: Point };
+  beginPlayback() {
+    this.savedCamera = { zoom: this.zoom, pan: { ...this.pan } };
+    this.zoom = Math.max(1.8, this.zoom);
+  }
+  endPlayback() {
+    if (this.savedCamera) { this.zoom = this.savedCamera.zoom; this.pan = this.savedCamera.pan; }
+    this.savedCamera = undefined;
+    this.event = undefined;
+  }
+  frame(state: GameState, event?: TurnEvent, progress = 0) {
+    this.state = state;
+    if (event && this.event !== event && this.savedCamera && state.operation) {
+      const point = event.position ?? pointOnRoute(event.path ?? [], .5);
+      if (point) {
+        const d = state.operation.definition, t = this.geometry().t;
+        this.pan = { x: (d.columns / 2 - point.x - .5) * t, y: (d.rows / 2 - point.y - .5) * t };
+        this.boundPan();
+      }
+    }
+    this.event = event;
+    this.progress = progress;
+    this.draw();
+  }
   constructor(private onSelect: (p: Point, unitId?: string) => void) {
     this.canvas.setAttribute(
       "aria-label",
@@ -99,6 +127,7 @@ export class CommandMap {
       this.pan = { x: 0, y: 0 };
     }
     this.state = state;
+    this.event = undefined;
     this.selected = selected;
     this.target = target;
     this.observer.disconnect();
@@ -131,6 +160,7 @@ export class CommandMap {
     if (!parent) return;
     this.width = parent.clientWidth;
     this.height = parent.clientHeight;
+    if (!this.width || !this.height) return;
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     this.canvas.width = this.width * ratio;
     this.canvas.height = this.height * ratio;
@@ -184,6 +214,15 @@ export class CommandMap {
           n = ((x * 73856093) ^ (y * 19349663)) >>> 0;
         c.fillStyle = colors[terrain];
         c.fillRect(x * t, y * t, t + 0.5, t + 0.5);
+        // Coordinate-based grain: terrain stays stable across turns and animation frames.
+        c.fillStyle = n % 2 ? "#ffffff09" : "#00000008";
+        c.fillRect(x * t, y * t, t, t);
+        if (terrain === "road") {
+          c.strokeStyle = "#665c4938"; c.lineWidth = Math.max(1, t * .09);
+          for (const offset of [.27, .7]) {
+            c.beginPath(); c.moveTo(x*t,(y+offset)*t); c.lineTo((x+1)*t,(y+offset)*t); c.stroke();
+          }
+        }
         // Static relief is derived from coordinates, never the turn.
         if (terrain === "forest") {
           for (let k = 0; k < 2; k++) {
@@ -195,6 +234,7 @@ export class CommandMap {
             c.lineTo(px - t * 0.2, py + t * 0.18);
             c.lineTo(px + t * 0.2, py + t * 0.18);
             c.fill();
+            if (!air) { c.fillStyle = "#e6e9d5a0"; c.beginPath(); c.moveTo(px,py-t*.28); c.lineTo(px-t*.12,py); c.lineTo(px+t*.1,py); c.fill(); }
           }
         }
         if (terrain === "village" || terrain === "rubble") {
@@ -208,6 +248,14 @@ export class CommandMap {
           c.moveTo((x + 0.1) * t, (y + 0.34) * t);
           c.lineTo((x + 0.68) * t, (y + 0.34) * t);
           c.stroke();
+          if (terrain === "rubble") {
+            c.fillStyle = "#4d4940";
+            c.fillRect((x+.24)*t,(y+.25)*t,t*.2,t*.16);
+            c.fillRect((x+.67)*t,(y+.73)*t,t*.17,t*.12);
+          } else {
+            c.fillStyle = "#635a4d";
+            c.beginPath(); c.moveTo((x+.07)*t,(y+.32)*t); c.lineTo((x+.39)*t,(y+.06)*t); c.lineTo((x+.73)*t,(y+.32)*t); c.fill();
+          }
         }
         if (terrain === "field" && n % 3 === 0) {
           c.strokeStyle = air ? "#7b8062" : "#b0b29a";
@@ -317,10 +365,11 @@ export class CommandMap {
     }
     const enemies = observedEnemies(s);
     for (const u of [...enemies, ...o.units.filter((u) => u.strength > 0)]) {
+      const moving = this.event?.kind === "move" && this.event.unitId === u.id ? pointOnRoute(this.event.path ?? [], this.progress) : undefined;
       const hostile = enemies.includes(u),
         active = u.id === this.selected,
-        x = (u.x + 0.5) * t,
-        y = (u.y + 0.5) * t,
+        x = ((moving?.x ?? u.x) + 0.5) * t,
+        y = ((moving?.y ?? u.y) + 0.5) * t,
         w = Math.max(18, t * 1.6),
         h = w * 0.65;
       c.shadowColor = "#081511aa";
@@ -361,6 +410,34 @@ export class CommandMap {
         c.fillStyle = "#f0d28b";
         c.fillText("→", x + w / 2 + 9, y + 4);
       }
+    }
+    const event = this.event;
+    if (event) {
+      const p = event.position ?? (event.path?.length ? pointOnRoute(event.path, this.progress) : undefined);
+      if (p) {
+        const x = (p.x+.5)*t, y = (p.y+.5)*t;
+        c.strokeStyle = event.kind === "contact" ? "#edaa76" : "#ffe3a2";
+        c.lineWidth = 2;
+        c.beginPath(); c.arc(x,y,t*(1.2+(this.reducedMotion ? .3 : this.progress)*1.5),0,Math.PI*2); c.stroke();
+        if (event.kind === "contact" && (event.incomingFire || event.returningFire)) {
+          if (event.source) {
+            c.setLineDash([3,6]); c.globalAlpha = .65;
+            c.beginPath(); c.moveTo((event.source.x+.5)*t,(event.source.y+.5)*t); c.lineTo(x,y); c.stroke(); c.setLineDash([]); c.globalAlpha = 1;
+          }
+          // Slow smoke, no flashing; an unknown origin has no tracer.
+          c.fillStyle = "#3f3b34aa";
+          for (let i=0;i<3;i++) { c.beginPath(); c.arc(x+(i-1)*t*.4,y-t*(.5+this.progress),t*(.3+i*.12),0,Math.PI*2); c.fill(); }
+        }
+      }
+    }
+    // Visible engineering work is tied to active tasks / completed systems.
+    for (const task of o.tasks) {
+      const site = task.actionId === "aircraft" ? "HANGAR" : ["runway", "sortie"].includes(task.actionId) ? "PISTA" : task.actionId === "shelter" ? "POSTO MÉDICO" : "RÁDIO";
+      const place = d.places.find(p => p.name.includes(site));
+      const p = naval ? o.units[0] : place ?? o.units[0];
+      c.fillStyle = "#172722e8"; c.fillRect((p.x-1)*t,(p.y+1)*t,82,17);
+      c.fillStyle = "#e8c883"; c.font = "9px monospace"; c.textAlign = "left";
+      c.fillText(`SERVIÇO · T${task.eta}`,(p.x-1)*t+4,(p.y+1)*t+12);
     }
     c.restore();
     c.fillStyle = "#e8dfbe";

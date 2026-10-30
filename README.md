@@ -1,6 +1,6 @@
 # ÚLTIMA LINHA — 1944
 
-Jogo de comando tático e narrativa em 1944. A edição 0.4 incorpora as nove cenas fornecidas pelo autor em prólogos de tela inteira, com transições, leitura automática opcional, histórico e decisões. O posto de comando tem mapa persistente em Canvas 2D, comunicações e ordens resolvidas por turnos. Publicação em [GitHub Pages](https://jonatanoficial-bit.github.io/ultima-linha-1944/?v=0.4.0).
+Jogo de comando tático e narrativa em 1944. A edição 0.5 acrescenta postos de comando nas três campanhas, chamadas com contexto visual e execução das ordens com pausa, aceleração e repetição. Os nove quadros cinematográficos continuam nos prólogos. O posto de comando tem mapa persistente em Canvas 2D, comunicações e ordens resolvidas por turnos. Publicação em [GitHub Pages](https://jonatanoficial-bit.github.io/ultima-linha-1944/?v=0.5.0).
 
 > Em desenvolvimento. A Bíblia Mestra permanece a referência de conteúdo e regras. Esta versão implementa uma etapa jogável, não a totalidade do Lote 1. Consulte a [matriz de aderência](docs/bible-audit-0.3.md) para as diferenças e pendências.
 
@@ -31,3 +31,7 @@ As nove imagens do [storyboard](docs/storyboard-prompts.md) foram entregues e in
 Na Aviação, a escolha inicial ocorre nos destroços, antes do retorno à base. O modo automático para nas decisões; pular mostra um resumo e exige uma escolha explícita. Nenhuma cena avança turnos. Partidas da edição 0.3 continuam compatíveis com o mesmo slot v3.
 
 No campo, **F** alterna foco no mapa, **1–5** selecionam formações, **R/O/J** abrem rádio/ordens/diário e **Enter** abre a revisão do turno. Com o mapa em foco de teclado, as setas marcam coordenadas. No celular, Ordens abre um painel sobre o campo, com fechamento próprio. O ambiente sonoro procedural é opcional e começa desligado.
+
+## Imersão em duas partes
+
+A primeira parte reúne posto → chamada → decisão → campo → execução → relatório. O mapa ocupa o centro da interface, com painéis sob demanda. O estado é salvo antes da apresentação, e pular/rever não muda os resultados. Partidas 0.3/0.4 continuam compatíveis. Leia o [plano e a parte restante](docs/immersion-plan.md) e a [auditoria 0.5](docs/bible-audit-0.5.md).

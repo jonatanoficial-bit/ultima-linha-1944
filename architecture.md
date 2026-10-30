@@ -52,3 +52,9 @@ O envelope atual usa `version: 3`, `savedAt` e `state`, incluindo `gameVersion`,
 ## Evolução para o Lote 1
 
 Os próximos incrementos preenchem os pacotes canônicos M01, A01, N01 e M00 com mapas, roster individual, eventos, diálogos, IA por domínio, finais, assets licenciados e testes de replay. A interface atual não substitui esse conteúdo: ela é o alicerce testável em que ele será carregado.
+
+## Apresentação do período · edição 0.5
+
+`Transition.events` transporta recibos filtrados dos acontecimentos efetivamente resolvidos. Eles não entram no save e não alteram PRNG ou tempo. `TurnDirector` anima uma cópia visual, com pausa/avanço/skip e descarte garantido de RAF/listeners ao terminar. `CommandMap.frame` interpola a rota gravada, respeita observação e restaura a câmera. O snapshot final já foi salvo antes da apresentação; repetir ou pular não reaplica o turno. Redução de movimento usa quadros estáticos.
+
+Postos e comunicações usam `content/stations.ts` e as artes aprovadas. O HUD é contextual por padrão. O escopo em duas entregas está em `docs/immersion-plan.md`; pendências de simulação da Bíblia continuam explícitas.

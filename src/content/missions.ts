@@ -3,7 +3,7 @@ import { OPERATIONS } from "./operations";
 
 const mission = (pack: MissionPack): MissionPack => ({
   ...pack,
-  contentVersion: "0.4.0",
+  contentVersion: "0.5.0",
   operation: OPERATIONS[pack.campaignId],
 });
 

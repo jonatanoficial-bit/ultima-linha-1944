@@ -4,8 +4,10 @@ import { sameCommunicationIdentity } from "../content/characters";
 import type {
   ActionId,
   Command,
+  CommandProfile,
   GameState,
   Resources,
+  SupportPackage,
 } from "../core/contracts";
 import type { Effects, Point, UnitOrder } from "../core/operations-types";
 import { ACTIONS, createInitialState, reduce } from "../core/engine";
@@ -39,6 +41,11 @@ import {
   type MapCommandStage,
 } from "./map-command-flow";
 import { unitCardAssetUrl, visualForUnit } from "../content/unit-visuals";
+import { topDownSpriteUrl } from "../content/unit-visuals";
+import { aircraftInventory } from "../content/operational-inventory";
+import { supportById, supportsForBranch } from "../content/supports";
+import { deploySupport, purchaseSupport, rankForXp, settleMission } from "../core/progression";
+import { decodeCommandProfile, encodeCommandProfile, PROFILE_KEY } from "../core/profile-persistence";
 
 const app = document.querySelector<HTMLElement>("#app")!;
 const missions = MISSIONS.filter((m) => m.campaignId !== "lab");
@@ -59,6 +66,7 @@ let story = newNarrative(),
   panel = "orders",
   notice = "",
   sound = false;
+let commandProfile: CommandProfile = loadCommandProfile();
 let modalAction: (() => void) | undefined,
   modalKind = "",
   lastFocus: HTMLElement | null = null;
@@ -102,6 +110,20 @@ const resourceLabels: Record<keyof Resources, string> = {
   batteries: "Baterias",
   food: "Rações",
 };
+function loadCommandProfile() {
+  try { return decodeCommandProfile(localStorage.getItem(PROFILE_KEY)); }
+  catch { return decodeCommandProfile(null); }
+}
+function saveCommandProfile() {
+  try { localStorage.setItem(PROFILE_KEY, encodeCommandProfile(commandProfile)); }
+  catch { notice = "O navegador não permitiu salvar o registro de requisições."; }
+}
+function activeSupportFor(branch = mission.campaignId): SupportPackage | undefined {
+  return branch === "lab" ? undefined : supportById(commandProfile.deployedSupportByBranch[branch]);
+}
+function activeMissionSupport(): SupportPackage | undefined {
+  return game ? supportById(game.deployedSupportId) : undefined;
+}
 const statLabels: Record<string, string> = {
   morale: "Moral",
   readiness: "Prontidão",
@@ -332,19 +354,24 @@ function stationMarkup() {
   return `<section class="station-stage" aria-label="${station.title}"><img class="station-backdrop" src="${sceneUrl(station.scene)}" alt="${station.title}"><div class="station-shade"></div><div class="station-location"><span class="eyebrow">${station.location}</span><h1>${station.title}</h1><p>${esc(s.operation!.definition.commander)} · ${esc(s.operation!.definition.rank)}</p></div><div class="station-brief"><span class="eyebrow">SUA RESPONSABILIDADE</span><p>${esc(mission.operationalGoal)}</p><span class="station-condition">${esc(s.operation!.definition.systemLabels[key] ?? key)} ${condition}${key === "wire" ? "/100" : "%"} · ${s.personnel.capable} capazes · ${s.personnel.wounded} feridos</span></div><nav class="station-actions" aria-label="Estações do posto">${btn("to-field", `<small>01 / OPERAÇÕES</small><strong>${station.desk} →</strong>`, "station-action primary")}${btn(event ? "incoming" : "station-radio", `<small>02 / COMUNICAÇÕES ${event ? "· CHAMADA" : ""}</small><strong>${event ? esc(event.from) : "Abrir a rede de rádio"}</strong>`, `station-action ${event ? "calling" : ""}`)}${btn("station-state", '<small>03 / COMPANHIA E MATERIAL</small><strong>Examinar a situação</strong>', 'station-action')}</nav></section>`;
 }
 function showOutcome() {
+  const settlement = settleMission(commandProfile, game!);
+  commandProfile = settlement.profile;
+  saveCommandProfile();
   modal(
     game!.outcome!.title,
-    `<p class="dialogue">${esc(game!.outcome!.description)}</p><p>${game!.personnel.capable} capazes · ${game!.personnel.wounded} feridos · ${game!.personnel.missing} desaparecidos · ${game!.personnel.dead} mortos</p><p>${game!.operation!.decisions.length} decisões registradas. O diário e os estoques permanecem disponíveis.</p>`,
+    `<p class="dialogue">${esc(game!.outcome!.description)}</p><p>${game!.personnel.capable} capazes · ${game!.personnel.wounded} feridos · ${game!.personnel.missing} desaparecidos · ${game!.personnel.dead} mortos</p><p>${game!.operation!.decisions.length} decisões registradas. O diário e os estoques permanecem disponíveis.</p>${settlement.reward ? `<p class="effect-preview">RECOMPENSA REGISTRADA · +${settlement.reward.reputation} reputação · +${settlement.reward.xp} experiência</p>` : ""}`,
     btn("export", "Exportar registro") +
       btn("close", "Examinar o campo", "primary"),
     "outcome",
   );
 }
 function start(choice: string) {
+  const support = activeSupportFor();
   game = createInitialState(
     mission,
     `${mission.campaignId}-${Date.now()}`,
     choice,
+    support,
   );
   selected = game.operation!.units[0].id;
   clearMapFlow();
@@ -408,7 +435,7 @@ function render() {
     `url("${new URL(assetUrl(mission.visuals.backdrop), document.baseURI).href}")`,
   );
   if (screen === "menu") {
-    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar operação", "primary") : ""}${btn("new", hasSave() ? "Nova operação" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p></aside><footer class="title-footer"><span>Campanhas locais · progresso salvo neste navegador</span><span>EDIÇÃO 0.7 / MAPA E COMANDO</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
+    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar operação", "primary") : ""}${btn("new", hasSave() ? "Nova operação" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("quartermaster", "Apoio do QG")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p>${activeSupportFor() ? `<p class="assigned-support">QG designado · ${esc(activeSupportFor()!.title)}</p>` : ""}</aside><footer class="title-footer"><span>Campanhas locais · progresso salvo neste navegador</span><span>EDIÇÃO 0.8 / APOIO E INVENTÁRIO</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
     app
       .querySelector(".title-actions")!
       .insertAdjacentHTML(
@@ -432,7 +459,7 @@ function render() {
   }
   app.innerHTML = `<header class="command-bar"><div class="operation-name"><span class="eyebrow">${branchName[s.campaignId]} / ${s.phase === "ended" ? "ENCERRADA" : "EM OPERAÇÃO"} · T${Math.min(s.currentTurn,s.maxTurns)}</span><strong>${d.title}</strong></div><div class="clock"><strong>${dateLabel()}</strong><span>TURNO ${Math.min(s.currentTurn, s.maxTurns)} / ${s.maxTurns} · ${d.weather}</span></div><div class="bar-actions">${btn("sound", sound ? "♪ Som ligado" : "♪ Som desligado", "quiet", `aria-pressed="${sound}"`)}${btn("fullscreen", "⛶", "icon", 'aria-label="Alternar tela cheia"')}${btn("pause", "II", "icon", 'aria-label="Pausar e abrir menu"')}</div></header>
   <main class="command-layout"><aside class="roster"><div class="section-label">SEU COMANDO</div><p class="commander-name">${esc(d.commander)}<small>${esc(d.rank)}</small></p><div class="formation-list">${o.units.map((u) => btn("unit", `<span class="unit-symbol">${s.campaignId === "navy" ? "≋" : "⊠"}</span><span><strong>${esc(u.name)}</strong><small>${u.strength} capazes · ${u.x},${u.y}</small><small>${orderLabels[u.order]}${u.target ? ` → ${u.target.x},${u.target.y}` : ""}</small></span>`, u.id === selected ? "formation active" : "formation", `data-id="${u.id}" aria-pressed="${u.id === selected}"`)).join("")}</div><div class="roster-bottom"><span class="eyebrow">OBJETIVO</span><p>${esc(mission.operationalGoal)}</p><span class="coords">REFERÊNCIA ${d.objective.x} / ${d.objective.y}</span></div></aside>
-  <section class="map-column" aria-label="Teatro de operações"><div class="map-toolbar"><span>◈ CARTA TÁTICA <small>${observedEnemies(s).length} contatos observados</small></span><div>${btn("zoom-out", "−", "icon", 'aria-label="Reduzir mapa"')}${btn("zoom-in", "+", "icon", 'aria-label="Ampliar mapa"')}${btn("recenter", "⌖", "icon", 'aria-label="Recentrar mapa"')}${btn("history", "Arquivo", "quiet")}${btn("field-focus", fieldFocus ? "HUD" : "Foco", "quiet focus-toggle", `aria-pressed="${fieldFocus}" aria-label="Alternar foco no mapa"`)}${btn("drawer", drawerOpen ? "Fechar ordens" : "Posto", "quiet drawer-controls", `aria-expanded="${drawerOpen}"`)}</div></div><div id="tactical-map" class="tactical-map"></div>${commandDeck(unit)}<div class="map-caption"><span>▨ PRESENÇA DE CAMPO · <b>□ OBJETIVO</b> · SOMBRA: SEM OBSERVAÇÃO</span><span>Arraste para navegar</span></div>${event ? `<button class="incoming-banner" data-action="incoming"><span class="signal-dot"></span><span><strong>Comunicação aguardando resposta</strong><small>${esc(event.from)} — ${esc(event.title)}</small></span><b>ATENDER →</b></button>` : ""}<div class="field-notice" role="status">${esc(notice || "Aguardando suas ordens.")}</div></section>
+  <section class="map-column" aria-label="Teatro de operações"><div class="map-toolbar"><span>◈ CARTA TÁTICA <small>${observedEnemies(s).length} contatos observados</small></span><div>${btn("zoom-out", "−", "icon", 'aria-label="Reduzir mapa"')}${btn("zoom-in", "+", "icon", 'aria-label="Ampliar mapa"')}${btn("recenter", "⌖", "icon", 'aria-label="Recentrar mapa"')}${btn("history", "Arquivo", "quiet")}${btn("field-focus", fieldFocus ? "HUD" : "Foco", "quiet focus-toggle", `aria-pressed="${fieldFocus}" aria-label="Alternar foco no mapa"`)}${btn("drawer", drawerOpen ? "Fechar ordens" : "Posto", "quiet drawer-controls", `aria-expanded="${drawerOpen}"`)}</div></div>${supportReceipt()}<div id="tactical-map" class="tactical-map"></div>${commandDeck(unit)}<div class="map-caption"><span>▨ PRESENÇA DE CAMPO · <b>□ OBJETIVO</b> · SOMBRA: SEM OBSERVAÇÃO</span><span>Arraste para navegar</span></div>${event ? `<button class="incoming-banner" data-action="incoming"><span class="signal-dot"></span><span><strong>Comunicação aguardando resposta</strong><small>${esc(event.from)} — ${esc(event.title)}</small></span><b>ATENDER →</b></button>` : ""}<div class="field-notice" role="status">${esc(notice || "Aguardando suas ordens.")}</div></section>
   <aside class="orders-panel"><div class="drawer-heading"><span>POSTO DE COMANDO</span>${btn("drawer", "×", "quiet", 'aria-label="Fechar painel de comando"')}</div><nav class="panel-tabs" aria-label="Painéis de comando">${[
     ["orders", "Ordens"],
     ["radio", "Rádio"],
@@ -493,6 +520,41 @@ function commandDeck(unit: NonNullable<GameState["operation"]>["units"][number])
       : `<div class="field-order-list" aria-label="Ações para ${esc(unit.name)}">${orderButtons}</div>`;
   return `<section class="unit-command-deck" aria-label="Comando de ${esc(unit.name)}"><img src="${unitCardAssetUrl(s.campaignId, unit)}" alt="Arte de referência: ${esc(visual.classification)}"><div class="unit-command-copy"><span class="eyebrow">${esc(visual.classification)}</span><strong>${esc(unit.name)} · ${unit.strength} capazes</strong><small>${esc(unit.role)} · ${unit.x}, ${unit.y}</small></div>${status}</section>`;
 }
+function supportEffects(support: SupportPackage) {
+  const effects = effectText({ stats: support.effects.stats, resources: support.effects.resources });
+  return `${effects || "Sem alteração de estoque"}${support.effects.pressureDelta ? ` · Pressão ${support.effects.pressureDelta}` : ""}`;
+}
+function supportCard(support: SupportPackage) {
+  const unlocked = commandProfile.unlockedSupportIds.includes(support.id);
+  const deployed = activeSupportFor()?.id === support.id;
+  const action = unlocked
+    ? btn("deploy-support", deployed ? "Designado para a próxima operação" : "Designar para a próxima operação", deployed ? "quiet" : "primary", `data-id="${support.id}" ${deployed ? "disabled" : ""}`)
+    : btn("purchase-support", `Autorizar · ${support.requestCost} reputação`, "primary", `data-id="${support.id}" ${commandProfile.reputation < support.requestCost ? "disabled" : ""}`);
+  return `<article class="support-card ${deployed ? "assigned" : ""}"><img src="${assetUrl(approvedAsset(support.assetId))}" alt="Arte de referência: ${esc(support.title)}"><div><span class="eyebrow">${deployed ? "DESIGNADO" : unlocked ? "DISPONÍVEL" : "REQUISIÇÃO"}</span><h3>${esc(support.title)}</h3><p>${esc(support.description)}</p><small>${esc(supportEffects(support))}</small></div><div class="support-card-action">${action}</div></article>`;
+}
+function quartermaster() {
+  const branch = mission.campaignId;
+  if (branch === "lab") return;
+  const active = activeSupportFor();
+  const rank = rankForXp(commandProfile.xp);
+  modal(
+    `Requisições do QG · ${branchName[branch]}`,
+    `<p class="quartermaster-lead">Apoios são confirmados antes do prólogo e seus efeitos entram no estado inicial da missão. Eles <strong>não</strong> criam uma unidade física no mapa sem dados próprios da operação.</p><div class="profile-strip"><span>REPUTAÇÃO <b>${commandProfile.reputation}</b></span><span>EXPERIÊNCIA <b>${commandProfile.xp}</b></span><span>${esc(rank.title)}</span></div><div class="support-cards">${supportsForBranch(branch).map(supportCard).join("")}</div>${active ? `<div class="support-clear"><span>Designado: <strong>${esc(active.title)}</strong></span>${btn("withdraw-support", "Retirar designação", "quiet")}</div>` : ""}`,
+    btn("close", "Voltar", "primary"),
+    "quartermaster",
+  );
+}
+function supportReceipt() {
+  const support = activeMissionSupport();
+  return support
+    ? `<button class="support-receipt" data-action="support-manifest"><img src="${assetUrl(approvedAsset(support.assetId))}" alt=""><span><small>APOIO DO QG · CONFIRMADO</small><strong>${esc(support.title)}</strong><em>Efeito operacional já aplicado · não é entidade de campo</em></span></button>`
+    : "";
+}
+function aircraftManifest(state: GameState) {
+  const inventory = aircraftInventory(state);
+  if (!inventory.length) return "";
+  return `<div class="section-label">REGISTRO DA ALA · 6 CÉLULAS</div><p class="micro">Modelos e números de série não foram definidos para A01. O registro mostra apenas a disponibilidade confirmada.</p><div class="aircraft-inventory">${inventory.map((asset) => `<article class="${asset.condition}">${asset.condition === "lost" ? "<span class=asset-loss>×</span>" : `<img src="${topDownSpriteUrl("aircraft")}" alt="">`}<div><strong>${asset.label}</strong><small>${asset.note}</small></div></article>`).join("")}</div>`;
+}
 function panelContent() {
   const s = game!,
     o = s.operation!,
@@ -536,7 +598,7 @@ function panelContent() {
         .join("") || '<p class="micro">Nenhuma transmissão enviada.</p>'
     }`;
   if (panel === "state")
-    return `<div class="section-label">CONDIÇÃO OPERACIONAL</div>${Object.entries(
+    return `${activeMissionSupport() ? `<div class="support-state">${supportReceipt()}</div>` : ""}<div class="section-label">CONDIÇÃO OPERACIONAL</div>${Object.entries(
       o.systems,
     )
       .map(
@@ -558,7 +620,7 @@ function panelContent() {
         ([k, v]) =>
           `<label class="stat-meter">${statLabels[k]} <b>${v}%</b><meter min="0" max="100" value="${v}">${v}%</meter></label>`,
       )
-      .join("")}<p class="micro">${esc(d.mapNote)}</p>`;
+      .join("")}${aircraftManifest(s)}<p class="micro">${esc(d.mapNote)}</p>`;
   return `<div class="section-label">DIÁRIO DE OPERAÇÕES</div>${s.log
     .slice()
     .reverse()
@@ -684,6 +746,60 @@ app.addEventListener("click", async (e) => {
     gameAudio.setBranch(mission.campaignId);
     notice = "";
     render();
+    return;
+  }
+  if (action === "quartermaster") {
+    quartermaster();
+    return;
+  }
+  if (action === "purchase-support") {
+    const support = supportById(id);
+    if (!support || support.branch !== mission.campaignId) return;
+    confirm(
+      `Autorizar ${support.title}?`,
+      `<p>${esc(support.description)}</p><p class="effect-preview">Custo: ${support.requestCost} reputação<br>${esc(supportEffects(support))}</p><p>O apoio será designado somente para a próxima operação desta carreira. Não adiciona uma unidade ao mapa sem dados de missão.</p>`,
+      () => {
+        const purchased = purchaseSupport(commandProfile, support);
+        if (!purchased) {
+          notice = "Reputação insuficiente para autorizar este apoio.";
+        } else {
+          commandProfile = deploySupport(purchased, support);
+          saveCommandProfile();
+          notice = `${support.title} autorizado e designado para a próxima operação.`;
+        }
+        render();
+      },
+    );
+    return;
+  }
+  if (action === "deploy-support") {
+    const support = supportById(id);
+    if (!support || support.branch !== mission.campaignId || !commandProfile.unlockedSupportIds.includes(support.id)) return;
+    commandProfile = deploySupport(commandProfile, support);
+    saveCommandProfile();
+    notice = `${support.title} designado para a próxima operação.`;
+    render();
+    return;
+  }
+  if (action === "withdraw-support") {
+    const branch = mission.campaignId;
+    if (branch === "lab") return;
+    const { [branch]: _withdrawn, ...remaining } = commandProfile.deployedSupportByBranch;
+    commandProfile = { ...commandProfile, deployedSupportByBranch: remaining };
+    saveCommandProfile();
+    notice = "Apoio retirado da próxima operação.";
+    render();
+    return;
+  }
+  if (action === "support-manifest" && game) {
+    const support = activeMissionSupport();
+    if (!support) return;
+    modal(
+      `Apoio do QG · ${support.title}`,
+      `<img class="support-manifest-art" src="${assetUrl(approvedAsset(support.assetId))}" alt="Arte de referência: ${esc(support.title)}"><p>${esc(support.description)}</p><p class="effect-preview">${esc(supportEffects(support))}</p><p>Este é um apoio confirmado no estado inicial. A missão não declara uma coordenada ou formação própria para ele; portanto, não aparece como unidade física na carta tática.</p>`,
+      btn("close", "Voltar ao comando", "primary"),
+      "support-manifest",
+    );
     return;
   }
   if (action === "menu") {

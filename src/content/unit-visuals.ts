@@ -3,13 +3,14 @@ import type { Formation } from "../core/operations-types";
 import { approvedAsset, assetUrl } from "./assets";
 
 /** Presentation stills stay in the UI; only these orthographic derivatives enter the map. */
-export type TacticalSprite = "command" | "infantry" | "support" | "destroyer";
+export type TacticalSprite = "command" | "infantry" | "support" | "destroyer" | "aircraft";
 
 const spriteFile: Record<TacticalSprite, string> = {
   command: "sprites/command-post-topdown.png",
   infantry: "sprites/infantry-squad-topdown.png",
   support: "sprites/support-team-topdown.png",
   destroyer: "sprites/destroyer-topdown.png",
+  aircraft: "sprites/aircraft-generic-topdown.png",
 };
 
 export interface UnitVisual {

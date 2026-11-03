@@ -20,7 +20,8 @@ export function drawFormation(c:CanvasRenderingContext2D,x:number,y:number,size:
  if(active){c.strokeStyle='#edca7b';c.beginPath();c.ellipse(0,size*.7,size*1.1, size*.27,0,0,Math.PI*2);c.stroke();}
  c.restore();
 }
-export function drawAircraft(c:CanvasRenderingContext2D,x:number,y:number,size:number){
+export function drawAircraft(c:CanvasRenderingContext2D,x:number,y:number,size:number,sprite?:HTMLImageElement){
  c.save();c.translate(x,y);c.fillStyle='#a8b0a0';c.strokeStyle='#343f38';c.lineWidth=1;
+ if(sprite){const ratio=sprite.naturalWidth/Math.max(1,sprite.naturalHeight),w=size*2.3,h=w/ratio;c.globalAlpha=.9;c.drawImage(sprite,-w/2,-h/2,w,h);c.restore();return;}
  c.beginPath();c.moveTo(0,-size);c.lineTo(size*.13,-size*.15);c.lineTo(size*.9,size*.2);c.lineTo(size*.9,size*.4);c.lineTo(size*.13,size*.25);c.lineTo(size*.12,size*.7);c.lineTo(size*.4,size*.85);c.lineTo(-size*.4,size*.85);c.lineTo(-size*.12,size*.7);c.lineTo(-size*.13,size*.25);c.lineTo(-size*.9,size*.4);c.lineTo(-size*.9,size*.2);c.lineTo(-size*.13,-size*.15);c.closePath();c.fill();c.stroke();c.restore();
 }

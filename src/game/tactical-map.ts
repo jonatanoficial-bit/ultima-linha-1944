@@ -3,7 +3,7 @@ import type { GameState } from "../core/contracts";
 import type { Point, Terrain } from "../core/operations-types";
 import { observedEnemies, pathTo, terrainAt } from "../core/operations-engine";
 import { pointOnRoute, type TurnEvent } from "../core/turn-events";
-import { topDownSpriteUrl, visualForUnit } from "../content/unit-visuals";
+import { topDownSpriteUrl, visualForUnit, type TacticalSprite } from "../content/unit-visuals";
 
 /** One persistent canvas: camera and terrain survive HUD updates. */
 export class CommandMap {
@@ -148,17 +148,20 @@ export class CommandMap {
     this.pan = { x: 0, y: 0 };
     this.draw();
   }
-  private spriteFor(unit: NonNullable<GameState["operation"]>["units"][number]) {
-    const source = topDownSpriteUrl(visualForUnit(this.state!.campaignId, unit).sprite);
-    let sprite = this.sprites.get(source);
-    if (!sprite) {
-      sprite = new Image();
-      sprite.decoding = "async";
-      sprite.addEventListener("load", () => this.draw(), { once: true });
-      sprite.src = source;
-      this.sprites.set(source, sprite);
+  private sprite(kind: TacticalSprite) {
+    const source = topDownSpriteUrl(kind);
+    let image = this.sprites.get(source);
+    if (!image) {
+      image = new Image();
+      image.decoding = "async";
+      image.addEventListener("load", () => this.draw(), { once: true });
+      image.src = source;
+      this.sprites.set(source, image);
     }
-    return sprite.complete && sprite.naturalWidth > 0 ? sprite : undefined;
+    return image.complete && image.naturalWidth > 0 ? image : undefined;
+  }
+  private spriteFor(unit: NonNullable<GameState["operation"]>["units"][number]) {
+    return this.sprite(visualForUnit(this.state!.campaignId, unit).sprite);
   }
   private boundPan() {
     this.pan.x = Math.max(
@@ -383,7 +386,7 @@ export class CommandMap {
       c.fillStyle=naval?'#a4bcb635':'#423e3290';c.beginPath();c.ellipse(px,py,t*.65,t*.35,-.3,0,Math.PI*2);c.fill();
       c.strokeStyle='#393a32';c.lineWidth=1;for(let i=0;i<4;i++){c.beginPath();c.moveTo(px+(i-2)*t*.2,py);c.lineTo(px+(i-2)*t*.3,py+t*.4);c.stroke();}
     }
-    if(air){for(let i=0;i<Math.min(6,o.systems.aircraft ?? 0);i++)drawAircraft(c,(15+i*3)*t,8*t,t*.85);}
+    if(air){const aircraftSprite=this.sprite("aircraft");for(let i=0;i<Math.min(6,o.systems.aircraft ?? 0);i++)drawAircraft(c,(15+i*3)*t,8*t,t*.85,aircraftSprite);}
     const hour=new Date(new Date(d.start).getTime()+(s.currentTurn-1)*d.minutes*60000).getUTCHours();
     if(hour>=19||hour<6){c.fillStyle='rgba(12,26,48,.17)';c.fillRect(0,0,d.columns*t,d.rows*t);}
     const enemies = observedEnemies(s);

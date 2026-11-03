@@ -18,4 +18,14 @@ describe("command profile persistence", () => {
     expect(decodeCommandProfile('{"schemaVersion":"1.0.0","reputation":-2}')).toEqual(createCommandProfile());
     expect(decodeCommandProfile('{not json')).toEqual(createCommandProfile());
   });
+
+  it("migrates a valid v1 profile without losing requisitions", () => {
+    const current = createCommandProfile();
+    const legacy = { ...current, schemaVersion: "1.0.0" } as Record<string, unknown>;
+    delete legacy.campaigns;
+    const migrated = decodeCommandProfile(JSON.stringify(legacy));
+    expect(migrated.schemaVersion).toBe("1.1.0");
+    expect(migrated.reputation).toBe(current.reputation);
+    expect(migrated.campaigns).toEqual({});
+  });
 });

@@ -18,6 +18,7 @@ import {
   operationalCommand,
   operationOutcome,
   pendingEvent,
+  terminalOperationOutcome,
   tickOperation,
 } from "./operations-engine";
 
@@ -196,7 +197,7 @@ export const createInitialState = (
     });
   }
   const initial: GameState = {
-    gameVersion: "0.9.0",
+    gameVersion: "0.10.0",
     operation: mission.operation
       ? createOperation(mission.operation)
       : undefined,
@@ -475,17 +476,18 @@ export const reduce = (state: GameState, command: Command): Transition => {
     commandAP: 3,
     usedActions: [],
   };
+  const terminalOutcome = terminalOperationOutcome(afterTurn);
   const shouldEnd =
-    afterTurn.currentTurn > afterTurn.maxTurns ||
-    afterTurn.stats.morale <= 4 ||
-    afterTurn.personnel.capable <= 4 ||
-    (afterTurn.campaignId === "navy" &&
-      afterTurn.operation?.systems.hull === 0);
+    afterTurn.currentTurn > afterTurn.maxTurns || Boolean(terminalOutcome);
   const finished = shouldEnd
     ? addLog(
-        { ...afterTurn, phase: "ended", outcome: outcomeFor(afterTurn) },
+        {
+          ...afterTurn,
+          phase: "ended",
+          outcome: terminalOutcome ?? outcomeFor(afterTurn),
+        },
         "outcome",
-        outcomeFor(afterTurn).title,
+        (terminalOutcome ?? outcomeFor(afterTurn)).title,
       )
     : addLog(
         afterTurn,

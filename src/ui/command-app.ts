@@ -13,6 +13,7 @@ import type { Effects, Point, UnitOrder } from "../core/operations-types";
 import { ACTIONS, createInitialState, reduce } from "../core/engine";
 import {
   observedEnemies,
+  objectiveStatuses,
   pendingEvent,
   pathTo,
   terrainAt,
@@ -110,6 +111,27 @@ const resourceLabels: Record<keyof Resources, string> = {
   batteries: "Baterias",
   food: "Rações",
 };
+function objectiveValue(status: ReturnType<typeof objectiveStatuses>[number]) {
+  if (status.complete) return "CUMPRIDO";
+  if (status.source === "flag" || status.source === "objective") return "AGUARDA DECISÃO";
+  if (status.current === undefined || status.target === undefined) return "EM AVALIAÇÃO";
+  return `${status.current} / ${status.target}${status.source === "objectiveTurns" ? " períodos" : ""}`;
+}
+function objectiveMetric(status: ReturnType<typeof objectiveStatuses>[number]) {
+  if (!game || !status.key) return "Estado operacional";
+  const d = game.operation!.definition;
+  if (status.source === "system") return d.systemLabels[status.key] ?? status.key;
+  if (status.source === "stat") return statLabels[status.key] ?? status.key;
+  if (status.source === "personnel") return resourceLabels[status.key as keyof Resources] ?? ({ capable: "Pessoas capazes", wounded: "Feridos", missing: "Desaparecidos", dead: "Mortos" }[status.key] ?? status.key);
+  if (status.source === "objectiveTurns") return "Cobertura do objetivo";
+  return "Registro de comando";
+}
+function missionBoard(compact = false) {
+  if (!game) return "";
+  const objectives = objectiveStatuses(game);
+  const done = objectives.filter((objective) => objective.complete).length;
+  return `<section class="mission-board ${compact ? "objective-strip" : ""}" aria-label="Objetivos da missão"><header><span class="eyebrow">${compact ? "SITUAÇÃO DA MISSÃO" : "QUADRO DA MISSÃO"}</span><strong>${done}/${objectives.length} objetivos</strong></header><div class="mission-objectives">${objectives.map((objective) => `<article class="mission-objective ${objective.complete ? "complete" : ""}"><span class="objective-state">${objective.complete ? "◆" : "◇"}</span><div><strong>${esc(objective.label)}</strong>${compact ? `<small>${esc(objectiveMetric(objective))} · ${esc(objectiveValue(objective))}</small>` : `<p>${esc(objective.briefing)}</p><small>${esc(objectiveMetric(objective))} · <b>${esc(objectiveValue(objective))}</b></small>`}</div></article>`).join("")}</div></section>`;
+}
 function loadCommandProfile() {
   try { return decodeCommandProfile(localStorage.getItem(PROFILE_KEY)); }
   catch { return decodeCommandProfile(null); }
@@ -359,7 +381,7 @@ function showOutcome() {
   saveCommandProfile();
   modal(
     game!.outcome!.title,
-    `<p class="dialogue">${esc(game!.outcome!.description)}</p><p>${game!.personnel.capable} capazes · ${game!.personnel.wounded} feridos · ${game!.personnel.missing} desaparecidos · ${game!.personnel.dead} mortos</p><p>${game!.operation!.decisions.length} decisões registradas. O diário e os estoques permanecem disponíveis.</p>${settlement.reward ? `<p class="effect-preview">RECOMPENSA REGISTRADA · +${settlement.reward.reputation} reputação · +${settlement.reward.xp} experiência</p>` : ""}`,
+    `<p class="dialogue">${esc(game!.outcome!.description)}</p><p>${game!.personnel.capable} capazes · ${game!.personnel.wounded} feridos · ${game!.personnel.missing} desaparecidos · ${game!.personnel.dead} mortos</p>${missionBoard()}<p>${game!.operation!.decisions.length} decisões registradas. O diário e os estoques permanecem disponíveis.</p>${settlement.reward ? `<p class="effect-preview">RECOMPENSA REGISTRADA · +${settlement.reward.reputation} reputação · +${settlement.reward.xp} experiência</p>` : ""}`,
     btn("export", "Exportar registro") +
       btn("close", "Examinar o campo", "primary"),
     "outcome",
@@ -435,7 +457,7 @@ function render() {
     `url("${new URL(assetUrl(mission.visuals.backdrop), document.baseURI).href}")`,
   );
   if (screen === "menu") {
-    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar operação", "primary") : ""}${btn("new", hasSave() ? "Nova operação" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("quartermaster", "Apoio do QG")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p>${activeSupportFor() ? `<p class="assigned-support">QG designado · ${esc(activeSupportFor()!.title)}</p>` : ""}</aside><footer class="title-footer"><span>Campanhas locais · progresso salvo neste navegador</span><span>EDIÇÃO 0.9 / CÂMERA E CAMPO</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
+    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar operação", "primary") : ""}${btn("new", hasSave() ? "Nova operação" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("dossier", "Dossiê de carreira")}${btn("quartermaster", "Apoio do QG")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p>${activeSupportFor() ? `<p class="assigned-support">QG designado · ${esc(activeSupportFor()!.title)}</p>` : ""}</aside><footer class="title-footer"><span>Campanhas locais · progresso salvo neste navegador</span><span>EDIÇÃO 0.10 / CAMPANHA E COMBATE</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
     app
       .querySelector(".title-actions")!
       .insertAdjacentHTML(
@@ -459,8 +481,9 @@ function render() {
   }
   app.innerHTML = `<header class="command-bar"><div class="operation-name"><span class="eyebrow">${branchName[s.campaignId]} / ${s.phase === "ended" ? "ENCERRADA" : "EM OPERAÇÃO"} · T${Math.min(s.currentTurn,s.maxTurns)}</span><strong>${d.title}</strong></div><div class="clock"><strong>${dateLabel()}</strong><span>TURNO ${Math.min(s.currentTurn, s.maxTurns)} / ${s.maxTurns} · ${d.weather}</span></div><div class="bar-actions">${btn("sound", sound ? "♪ Som ligado" : "♪ Som desligado", "quiet", `aria-pressed="${sound}"`)}${btn("fullscreen", "⛶", "icon", 'aria-label="Alternar tela cheia"')}${btn("pause", "II", "icon", 'aria-label="Pausar e abrir menu"')}</div></header>
   <main class="command-layout"><aside class="roster"><div class="section-label">SEU COMANDO</div><p class="commander-name">${esc(d.commander)}<small>${esc(d.rank)}</small></p><div class="formation-list">${o.units.map((u) => btn("unit", `<span class="unit-symbol">${s.campaignId === "navy" ? "≋" : "⊠"}</span><span><strong>${esc(u.name)}</strong><small>${u.strength} capazes · ${u.x},${u.y}</small><small>${orderLabels[u.order]}${u.target ? ` → ${u.target.x},${u.target.y}` : ""}</small></span>`, u.id === selected ? "formation active" : "formation", `data-id="${u.id}" aria-pressed="${u.id === selected}"`)).join("")}</div><div class="roster-bottom"><span class="eyebrow">OBJETIVO</span><p>${esc(mission.operationalGoal)}</p><span class="coords">REFERÊNCIA ${d.objective.x} / ${d.objective.y}</span></div></aside>
-  <section class="map-column" aria-label="Teatro de operações"><div class="map-toolbar"><span>◈ CARTA TÁTICA <small>${observedEnemies(s).length} contatos observados</small></span><div>${btn("zoom-out", "−", "icon", 'aria-label="Reduzir mapa"')}${btn("zoom-in", "+", "icon", 'aria-label="Ampliar mapa"')}${btn("overview", "⌖", "icon", 'aria-label="Visão geral da operação"')}${btn("focus-unit", "◎", "icon", 'aria-label="Centralizar na formação selecionada"')}${btn("history", "Arquivo", "quiet")}${btn("field-focus", fieldFocus ? "HUD" : "Foco", "quiet focus-toggle", `aria-pressed="${fieldFocus}" aria-label="Alternar foco no mapa"`)}${btn("drawer", drawerOpen ? "Fechar ordens" : "Posto", "quiet drawer-controls", `aria-expanded="${drawerOpen}"`)}</div></div>${supportReceipt()}<div id="tactical-map" class="tactical-map"></div>${commandDeck(unit)}<div class="map-caption"><span>◈ MARCADOR DE LOCAL · <b>◇ OBJETIVO</b> · SOMBRA: SEM OBSERVAÇÃO</span><span>ARRASTE · PINÇA PARA AMPLIAR</span></div>${event ? `<button class="incoming-banner" data-action="incoming"><span class="signal-dot"></span><span><strong>Comunicação aguardando resposta</strong><small>${esc(event.from)} — ${esc(event.title)}</small></span><b>ATENDER →</b></button>` : ""}<div class="field-notice" role="status">${esc(notice || "Aguardando suas ordens.")}</div></section>
+  <section class="map-column" aria-label="Teatro de operações"><div class="map-toolbar"><span>◈ CARTA TÁTICA <small>${observedEnemies(s).length} contatos observados</small></span><div>${btn("zoom-out", "−", "icon", 'aria-label="Reduzir mapa"')}${btn("zoom-in", "+", "icon", 'aria-label="Ampliar mapa"')}${btn("overview", "⌖", "icon", 'aria-label="Visão geral da operação"')}${btn("focus-unit", "◎", "icon", 'aria-label="Centralizar na formação selecionada"')}${btn("history", "Arquivo", "quiet")}${btn("field-focus", fieldFocus ? "HUD" : "Foco", "quiet focus-toggle", `aria-pressed="${fieldFocus}" aria-label="Alternar foco no mapa"`)}${btn("drawer", drawerOpen ? "Fechar ordens" : "Posto", "quiet drawer-controls", `aria-expanded="${drawerOpen}"`)}</div></div>${missionBoard(true)}${supportReceipt()}<div id="tactical-map" class="tactical-map"></div>${commandDeck(unit)}<div class="map-caption"><span>◈ MARCADOR DE LOCAL · <b>◇ OBJETIVO</b> · SOMBRA: SEM OBSERVAÇÃO</span><span>ARRASTE · PINÇA PARA AMPLIAR</span></div>${event ? `<button class="incoming-banner" data-action="incoming"><span class="signal-dot"></span><span><strong>Comunicação aguardando resposta</strong><small>${esc(event.from)} — ${esc(event.title)}</small></span><b>ATENDER →</b></button>` : ""}<div class="field-notice" role="status">${esc(notice || "Aguardando suas ordens.")}</div></section>
   <aside class="orders-panel"><div class="drawer-heading"><span>POSTO DE COMANDO</span>${btn("drawer", "×", "quiet", 'aria-label="Fechar painel de comando"')}</div><nav class="panel-tabs" aria-label="Painéis de comando">${[
+    ["mission", "Missão"],
     ["orders", "Ordens"],
     ["radio", "Rádio"],
     ["state", "Situação"],
@@ -560,6 +583,8 @@ function panelContent() {
     o = s.operation!,
     d = o.definition,
     u = o.units.find((x) => x.id === selected)!;
+  if (panel === "mission")
+    return `${missionBoard()}<div class="section-label">RESULTADOS POSSÍVEIS</div><p class="micro">O desfecho é calculado pelo estado acima, pelas decisões registradas e pela capacidade restante — não por uma escolha final de texto.</p><div class="ending-list">${d.endings.filter((ending) => !ending.terminal).map((ending) => `<article><strong>${esc(ending.title)}</strong><p>${esc(ending.description)}</p></article>`).join("")}</div>`;
   if (panel === "orders")
     return `<div class="section-label">${esc(u.name)} / ORDENS</div><p class="panel-lead">${commandStage === "destination" ? "Etapa 2 de 3: marque o destino na carta tática." : commandStage === "preview" && pendingOrder ? `Etapa 3 de 3: revise ${orderLabels[pendingOrder].toLowerCase()} antes de confirmar.` : "Etapa 1 de 3: escolha uma ação; o mapa só recebe destino após Deslocar."}</p>${commandStage === "destination" ? `<form id="coordinates" class="coordinates"><label>X <input name="x" type="number" min="0" max="${d.columns - 1}" value="${target?.x ?? u.x}" required></label><label>Y <input name="y" type="number" min="0" max="${d.rows - 1}" value="${target?.y ?? u.y}" required></label><button type="submit">Marcar</button></form>` : ""}${routeReadout()}${commandStage === "preview" && pendingOrder ? `<div class="panel-order-preview"><p>${esc(orderSummary(pendingOrder, u.name, target))}</p><div>${btn("cancel-order", "Voltar", "quiet")}${btn("confirm-order", "Confirmar ordem →", "primary")}</div></div>` : `<div class="order-grid">${(["move", "cover", "recon", "hold"] as UnitOrder[]).map((id) => { const check = reduce(s, { type: "ORDER", unitId: u.id, order: id === "move" && !target ? "hold" : id, ...(id === "move" && target ? { target } : {}) }); return btn("start-order", `${orderLabels[id]}<small>1 PC</small>`, "order", `data-id="${id}" ${!check.accepted ? "disabled" : ""}`); }).join("")}</div>`}<p class="micro">${u.orderedTurn === s.currentTurn ? "Ordem comprometida neste turno." : "Cada formação recebe uma ordem por turno. Deslocamentos só são emitidos depois da prévia de rota."}</p><div class="section-label">${s.campaignId === "air" ? "RECUPERAÇÃO DA ALA" : s.campaignId === "navy" ? "CONTROLE DE AVARIAS" : "TRABALHOS DE CAMPANHA"}</div>${d.actions
       .map((a) => {
@@ -668,6 +693,19 @@ function archive() {
     `<p>45 artes do catálogo e 9 cenas narrativas fornecidas para os prólogos. Ilustrações de ficção histórica; cenas aprovadas não equivalem a retratos individuais novos.</p><div class="archive-grid">${CINEMATICS.map(a => `<figure><img loading="lazy" src="${cinematicUrl(a)}" alt="${esc(a.description)}"><figcaption>${a.id} · ${esc(a.title)}</figcaption></figure>`).join("")}${APPROVED_ASSETS.map((a) => `<figure><img loading="lazy" src="${assetUrl(a)}" alt="${esc(a.title)}"><figcaption>${a.id} · ${esc(a.title)}</figcaption></figure>`).join("")}</div>`,
   );
 }
+function dossier() {
+  const branch = mission.campaignId;
+  if (branch === "lab") return;
+  const record = commandProfile.campaigns[branch];
+  const history = record?.history ?? [];
+  const completed = record?.completedMissionIds.includes(mission.id);
+  modal(
+    `Dossiê de carreira · ${branchName[branch]}`,
+    `<p class="quartermaster-lead">A carreira guarda apenas consequências realmente concluídas: resultado, efetivo, decisões e objetivos. O próximo capítulo só será liberado quando existir um pacote jogável completo.</p><div class="profile-strip"><span>CAPÍTULOS CONCLUÍDOS <b>${record?.completedMissionIds.length ?? 0}</b></span><span>DECISÕES DE COMANDO <b>${record?.totalDecisions ?? 0}</b></span><span>PERDAS REGISTRADAS <b>${record?.losses ?? 0}</b></span></div><div class="campaign-dossier"><article class="dossier-chapter ${completed ? "complete" : ""}"><span class="eyebrow">${completed ? "ARQUIVADO" : "EM OPERAÇÃO"}</span><h3>${esc(mission.title)}</h3><p>${esc(mission.subtitle)}</p><small>${completed ? "Resultado consolidado no diário de carreira." : "Capítulo publicado e disponível."}</small></article><article class="dossier-chapter future"><span class="eyebrow">EM PRODUÇÃO</span><h3>Próximo capítulo</h3><p>A campanha não anuncia uma missão vazia. Novas operações entrarão somente com dados, eventos, objetivos e QA completos.</p></article></div>${history.length ? `<div class="section-label">REGISTRO DE DESFECHOS</div><div class="campaign-history">${history.slice().reverse().map((entry) => `<article><span class="eyebrow">${esc(entry.missionId)}</span><strong>${esc(entry.outcomeTitle)}</strong><p>${entry.capable} capazes · ${entry.wounded} feridos · ${entry.dead} mortos</p><small>${entry.decisions} decisões · ${entry.objectivesCompleted}/${entry.objectivesTotal} objetivos cumpridos</small></article>`).join("")}</div>` : `<p class="micro">Nenhum capítulo concluído nesta carreira. Os dados aparecerão após o relatório final.</p>`}`,
+    btn("close", "Voltar", "primary"),
+    "dossier",
+  );
+}
 function pause() {
   modal(
     "Comando em espera",
@@ -750,6 +788,10 @@ app.addEventListener("click", async (e) => {
   }
   if (action === "quartermaster") {
     quartermaster();
+    return;
+  }
+  if (action === "dossier") {
+    dossier();
     return;
   }
   if (action === "purchase-support") {

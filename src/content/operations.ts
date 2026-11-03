@@ -560,6 +560,54 @@ export const OPERATIONS: Record<BranchId, OperationDefinition> = {
     ],
     reserve: { ammo: 16, medKits: 4, food: 6 },
     objective: { x: 19, y: 14 },
+    objectives: [
+      {
+        id: "cedar-corridor",
+        label: "Corredor Cedar",
+        briefing: "Mantenha o acesso sob cobertura por doze períodos operacionais.",
+        requires: [{ source: "objectiveTurns", operator: "gte", value: 12 }],
+      },
+      {
+        id: "field-line",
+        label: "Linha de campanha",
+        briefing: "Restabeleça o telefone para que a cadeia de comando tenha um canal estável.",
+        requires: [{ source: "system", key: "wire", operator: "gte", value: 100 }],
+      },
+      {
+        id: "cedar-strength",
+        label: "Capacidade da companhia",
+        briefing: "Conclua com ao menos cinquenta pessoas capazes de continuar a operação.",
+        requires: [{ source: "personnel", key: "capable", operator: "gte", value: 50 }],
+      },
+    ],
+    endings: [
+      {
+        id: "hold",
+        title: "A estrada continua aberta",
+        description: "Cedar sustentou o corredor e conservou capacidade para a avaliação do batalhão.",
+        requires: [
+          { source: "objective", key: "cedar-corridor", operator: "present" },
+          { source: "personnel", key: "capable", operator: "gte", value: 50 },
+        ],
+      },
+      {
+        id: "costly-hold",
+        title: "Cedar resiste a custo alto",
+        description: "O acesso permaneceu coberto, mas os efetivos e o consumo exigirão recuperação antes do próximo capítulo.",
+        requires: [{ source: "objective", key: "cedar-corridor", operator: "present" }],
+      },
+      {
+        id: "withdrawal",
+        title: "Retirada preparada",
+        description: "A linha não foi sustentada por tempo suficiente; o plano alternativo foi registrado para avaliação do batalhão.",
+        requires: [{ source: "flag", key: "withdrawal-plan", operator: "present" }],
+      },
+      {
+        id: "survival",
+        title: "Homens preservados, acesso comprometido",
+        description: "A companhia atravessou a janela, mas não manteve cobertura suficiente sobre a estrada.",
+      },
+    ],
     mapNote:
       "Setor fictício 40 × 30 inspirado nos acessos Neffe/Bizory. Carta histórica regional disponível no arquivo.",
   },
@@ -683,6 +731,52 @@ export const OPERATIONS: Record<BranchId, OperationDefinition> = {
     ],
     reserve: { ammo: 12, medKits: 3, materials: 4 },
     objective: { x: 23, y: 18 },
+    objectives: [
+      {
+        id: "runway-safe",
+        label: "Pista segura",
+        briefing: "Eleve a integridade da pista ao mínimo necessário para uma saída autorizada.",
+        requires: [{ source: "system", key: "runway", operator: "gte", value: 65 }],
+      },
+      {
+        id: "air-decision",
+        label: "Decisão da ala",
+        briefing: "Complete uma saída ou registre a preservação deliberada da ala sob a ordem conflitante.",
+        requires: [{ source: "stat", key: "radio", operator: "gte", value: 45 }],
+        anyOf: [
+          [{ source: "system", key: "sorties", operator: "gte", value: 1 }],
+          [{ source: "flag", key: "preserve-air", operator: "present" }],
+        ],
+      },
+      {
+        id: "air-crew",
+        label: "Tripulação operacional",
+        briefing: "Mantenha ao menos dezesseis pessoas capazes para que a base continue coordenável.",
+        requires: [{ source: "personnel", key: "capable", operator: "gte", value: 16 }],
+      },
+    ],
+    endings: [
+      {
+        id: "hold",
+        title: "A ala volta a operar",
+        description: "A pista recuperada permitiu uma saída e o registro mantém a capacidade restante da ala.",
+        requires: [
+          { source: "objective", key: "runway-safe", operator: "present" },
+          { source: "system", key: "sorties", operator: "gte", value: 1 },
+        ],
+      },
+      {
+        id: "withdrawal",
+        title: "Base salva, missão adiada",
+        description: "A preservação deliberada da ala será apresentada ao grupo aéreo com suas consequências de comando.",
+        requires: [{ source: "flag", key: "preserve-air", operator: "present" }],
+      },
+      {
+        id: "survival",
+        title: "Ala em recuperação",
+        description: "A janela encerrou sem missão aérea concluída. A base exige continuidade de recuperação.",
+      },
+    ],
     mapNote:
       "Aeródromo fictício 48 × 36 da Bíblia. Nenhuma base histórica específica é atribuída a esta operação.",
   },
@@ -794,6 +888,56 @@ export const OPERATIONS: Record<BranchId, OperationDefinition> = {
     ],
     reserve: { ammo: 12, medKits: 3, materials: 3 },
     objective: { x: 14, y: 23 },
+    objectives: [
+      {
+        id: "return-zone",
+        label: "Zona de retorno",
+        briefing: "Leve o navio à zona de retorno antes do fim da janela de mar.",
+        requires: [{ source: "flag", key: "port", operator: "present" }],
+      },
+      {
+        id: "hull-stable",
+        label: "Casco estabilizado",
+        briefing: "Conserve integridade suficiente para que o retorno não dependa de uma perda total do navio.",
+        requires: [{ source: "system", key: "hull", operator: "gte", value: 40 }],
+      },
+      {
+        id: "crew-survives",
+        label: "Tripulação preservada",
+        briefing: "Mantenha pelo menos quarenta marinheiros capazes ao alcançar o porto.",
+        requires: [{ source: "personnel", key: "capable", operator: "gte", value: 40 }],
+      },
+    ],
+    endings: [
+      {
+        id: "collapse",
+        title: "Resgate parcial · navio perdido",
+        description: "A integridade do casco se esgotou. O plano de resgate preservou parte da tripulação, mas o retorno não aconteceu.",
+        terminal: true,
+        requires: [
+          { source: "system", key: "hull", operator: "lte", value: 0 },
+          { source: "flag", key: "rescue-plan", operator: "present" },
+        ],
+      },
+      {
+        id: "collapse",
+        title: "Navio perdido",
+        description: "A integridade do casco se esgotou. O retorno ao porto não aconteceu.",
+        terminal: true,
+        requires: [{ source: "system", key: "hull", operator: "lte", value: 0 }],
+      },
+      {
+        id: "hold",
+        title: "Navio e homens de volta",
+        description: "A rota de retorno foi completada. A conduta permanece sujeita à avaliação do grupo-tarefa.",
+        requires: [{ source: "objective", key: "return-zone", operator: "present" }],
+      },
+      {
+        id: "survival",
+        title: "Ainda no mar",
+        description: "A tripulação preservou o navio, mas não alcançou a zona de retorno dentro da janela.",
+      },
+    ],
     mapNote:
       "Carta operacional fictícia 60 × 40, conforme N01. A Bíblia ainda não atribui uma ilha ou porto histórico à missão.",
   },

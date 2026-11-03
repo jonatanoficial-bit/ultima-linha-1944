@@ -80,6 +80,11 @@ describe("mission engine", () => {
     const first = settleMission(createCommandProfile(), closed);
     expect(first.reward?.reputation).toBeGreaterThan(0);
     expect(first.profile.xp).toBeGreaterThan(0);
+    expect(first.profile.campaigns.army?.completedMissionIds).toContain(mission.id);
+    expect(first.profile.campaigns.army?.history[0]).toMatchObject({
+      missionId: mission.id,
+      outcomeId: "hold",
+    });
     const second = settleMission(first.profile, closed);
     expect(second.reward).toBeUndefined();
     expect(second.profile).toEqual(first.profile);

@@ -9,6 +9,8 @@ import {
   terrainAt,
   tickOperation,
   objectiveSecured,
+  objectiveStatuses,
+  operationOutcome,
 } from "./operations-engine";
 import { decodeSave, encodeSave } from "./persistence";
 
@@ -51,6 +53,20 @@ describe("persistent operations", () => {
     expect(objectiveSecured(s)).toBe(false);
     Object.assign(s.operation!.units[1], { x: 19, y: 15 });
     expect(objectiveSecured(s)).toBe(true);
+  });
+  it("derives the three mission objectives from real systems and decisions", () => {
+    const s = ready("air");
+    let objectives = objectiveStatuses(s);
+    expect(objectives).toHaveLength(3);
+    expect(objectives.find((objective) => objective.id === "runway-safe")?.current).toBe(46);
+    expect(objectives.every((objective) => objective.complete)).toBe(false);
+    s.operation!.systems.runway = 65;
+    s.operation!.systems.sorties = 1;
+    s.stats.radio = 45;
+    s.personnel.capable = 16;
+    objectives = objectiveStatuses(s);
+    expect(objectives.every((objective) => objective.complete)).toBe(true);
+    expect(operationOutcome(s)?.id).toBe("hold");
   });
   it("gates time and orders on an unanswered event, and applies a decision once", () => {
     const s = createInitialState(MISSIONS[0], "gate"),
@@ -240,6 +256,15 @@ describe("persistent operations", () => {
     expect(s.phase).toBe("ended");
     expect(s.outcome!.id).toBe("collapse");
     expect(s.operation!.flags).not.toContain("port");
+  });
+  it("selects the navy loss report from declared terminal conditions", () => {
+    const s = ready("navy");
+    s.operation!.systems.hull = 0;
+    s.operation!.flags.push("rescue-plan");
+    expect(operationOutcome(s)).toMatchObject({
+      id: "collapse",
+      title: "Resgate parcial · navio perdido",
+    });
   });
   it("transitions a surviving returning ship to port and stops ocean damage", () => {
     let s = ready("navy");

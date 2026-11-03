@@ -73,14 +73,35 @@ export interface SupportPackage {
   effects: SupportEffects;
 }
 
+export interface CampaignMissionRecord {
+  missionId: string;
+  outcomeId: Outcome["id"];
+  outcomeTitle: string;
+  capable: number;
+  wounded: number;
+  missing: number;
+  dead: number;
+  decisions: number;
+  objectivesCompleted: number;
+  objectivesTotal: number;
+}
+
+export interface CampaignRecord {
+  completedMissionIds: string[];
+  history: CampaignMissionRecord[];
+  totalDecisions: number;
+  losses: number;
+}
+
 /** Persistent, browser-local commander progression. No account or network is required. */
 export interface CommandProfile {
-  schemaVersion: "1.0.0";
+  schemaVersion: "1.1.0";
   reputation: number;
   xp: number;
   unlockedSupportIds: SupportId[];
   deployedSupportByBranch: Partial<Record<Exclude<BranchId, "lab">, SupportId>>;
   settledSeeds: string[];
+  campaigns: Partial<Record<Exclude<BranchId, "lab">, CampaignRecord>>;
 }
 
 export interface IntroChoice {

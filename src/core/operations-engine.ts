@@ -7,6 +7,8 @@ import type {
 } from "./contracts";
 import type {
   Effects,
+  ObjectiveRule,
+  ObjectiveStatus,
   OperationCommand,
   OperationDefinition,
   OperationState,
@@ -147,6 +149,74 @@ export const objectiveSecured = (s: GameState): boolean => {
     .filter((u) => near(u, 4))
     .reduce((n, u) => n + u.strength, 0);
   return friendly > 0 && friendly > hostile;
+};
+
+const objectiveRuleValue = (s: GameState, rule: ObjectiveRule): number | boolean => {
+  const o = s.operation;
+  if (!o) return 0;
+  if (rule.source === "system") return o.systems[rule.key ?? ""] ?? 0;
+  if (rule.source === "stat") return s.stats[rule.key as keyof Stats] ?? 0;
+  if (rule.source === "personnel") return s.personnel[rule.key as keyof typeof s.personnel] ?? 0;
+  if (rule.source === "flag") return o.flags.includes(rule.key ?? "");
+  if (rule.source === "objectiveTurns") return o.objectiveTurns;
+  return objectiveStatuses(s).find((objective) => objective.id === rule.key)?.complete ?? false;
+};
+
+export const objectiveRuleSatisfied = (s: GameState, rule: ObjectiveRule): boolean => {
+  const actual = objectiveRuleValue(s, rule);
+  if (rule.operator === "present") return actual === true;
+  if (typeof actual !== "number" || rule.value === undefined) return false;
+  if (rule.operator === "gte") return actual >= rule.value;
+  if (rule.operator === "lte") return actual <= rule.value;
+  return actual === rule.value;
+};
+
+/** Shared, data-driven status for the mission board, debrief and career ledger. */
+export const objectiveStatuses = (s: GameState): ObjectiveStatus[] => {
+  const o = s.operation;
+  if (!o) return [];
+  return o.definition.objectives.map((objective) => {
+    const criteria = objective.requires[0] ?? objective.anyOf?.[0]?.[0];
+    const value = criteria ? objectiveRuleValue(s, criteria) : undefined;
+    const complete = objective.requires.every((rule) => objectiveRuleSatisfied(s, rule)) &&
+      (!objective.anyOf || objective.anyOf.some((route) => route.every((rule) => objectiveRuleSatisfied(s, rule))));
+    return {
+      id: objective.id,
+      label: objective.label,
+      briefing: objective.briefing,
+      complete,
+      ...(typeof value === "number" && criteria ? {
+        current: value,
+        target: criteria.value,
+        operator: criteria.operator,
+        source: criteria.source,
+        key: criteria.key,
+      } : {}),
+    };
+  });
+};
+
+const endingOutcome = (ending: NonNullable<GameState["operation"]>["definition"]["endings"][number]): Outcome => ({
+  id: ending.id,
+  title: ending.title,
+  description: ending.description,
+});
+
+export const terminalOperationOutcome = (s: GameState): Outcome | undefined => {
+  const o = s.operation;
+  if (!o) return;
+  const terminal = o.definition.endings.find(
+    (ending) => ending.terminal && (ending.requires ?? []).every((rule) => objectiveRuleSatisfied(s, rule)),
+  );
+  if (terminal) return endingOutcome(terminal);
+  if (s.stats.morale <= 4 || s.personnel.capable <= 4)
+    return {
+      id: "collapse",
+      title: "Comando sem capacidade operacional",
+      description:
+        "A coesão ou o efetivo disponível se esgotou. A missão foi interrompida e as perdas permanecem no registro.",
+    };
+  return;
 };
 export const operationalCommand = (
   state: GameState,
@@ -554,84 +624,10 @@ export const tickOperation = (state: GameState, events: TurnEvent[] = []): GameS
 export const operationOutcome = (s: GameState): Outcome | undefined => {
   const o = s.operation;
   if (!o) return;
-  if (
-    (s.stats.morale <= 4 || s.personnel.capable <= 4) &&
-    !(s.campaignId === "navy" && o.systems.hull <= 0)
-  )
-    return {
-      id: "collapse",
-      title: "Comando sem capacidade operacional",
-      description:
-        "A coesão ou o efetivo disponível se esgotou. A missão foi interrompida e as perdas permanecem no registro.",
-    };
-  if (s.campaignId === "army") {
-    const held = objectiveSecured(s);
-    if (held && o.objectiveTurns >= 12)
-      return {
-        id: s.personnel.capable >= 50 ? "hold" : "costly-hold",
-        title:
-          s.personnel.capable >= 50
-            ? "A estrada continua aberta"
-            : "Cedar resiste a custo alto",
-        description: `O acesso permaneceu coberto durante ${o.objectiveTurns} períodos. Efetivos e consumo determinam o custo desta defesa.`,
-      };
-    if (o.flags.includes("withdrawal-plan"))
-      return {
-        id: "withdrawal",
-        title: "Retirada preparada",
-        description:
-          "A linha não foi sustentada por tempo suficiente; o plano alternativo foi registrado e a formação preservada será avaliada pelo batalhão.",
-      };
-    return {
-      id: "survival",
-      title: "Homens preservados, acesso comprometido",
-      description:
-        "A companhia atravessou a janela, mas não manteve cobertura suficiente sobre a estrada.",
-    };
-  }
-  if (s.campaignId === "navy")
-    return o.systems.hull <= 0
-      ? {
-          id: "collapse",
-          title: o.flags.includes("rescue-plan")
-            ? "Resgate parcial · navio perdido"
-            : "Navio perdido",
-          description:
-            "A integridade do casco se esgotou. O retorno ao porto não aconteceu.",
-        }
-      : o.flags.includes("port")
-        ? {
-            id: "hold",
-            title: "Navio e homens de volta",
-            description:
-              "A rota de retorno foi completada. A conduta permanece sujeita à avaliação do grupo-tarefa.",
-          }
-        : {
-            id: "survival",
-            title: "Ainda no mar",
-            description:
-              "A tripulação preservou o navio, mas não alcançou a zona de retorno dentro da janela.",
-          };
-  if (s.campaignId === "air")
-    return o.systems.sorties > 0 && o.systems.aircraft > 0
-      ? {
-          id: "hold",
-          title: "A ala volta a operar",
-          description:
-            "A pista recuperada permitiu uma saída. Perdas e consumo foram registrados.",
-        }
-      : o.flags.includes("preserve-air")
-        ? {
-            id: "withdrawal",
-            title: "Base salva, missão adiada",
-            description:
-              "A preservação deliberada da ala será apresentada ao grupo aéreo.",
-          }
-        : {
-            id: "survival",
-            title: "Ala em recuperação",
-            description:
-              "A janela encerrou sem missão aérea concluída. A base exige continuidade de recuperação.",
-          };
-  return;
+  const terminal = terminalOperationOutcome(s);
+  if (terminal) return terminal;
+  const ending = o.definition.endings.find(
+    (candidate) => !candidate.terminal && (candidate.requires ?? []).every((rule) => objectiveRuleSatisfied(s, rule)),
+  );
+  return ending ? endingOutcome(ending) : undefined;
 };

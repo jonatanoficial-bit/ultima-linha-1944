@@ -1,4 +1,4 @@
-import type { Resources, Stats } from "./contracts";
+import type { Outcome, Resources, Stats } from "./contracts";
 
 export type Point = { x: number; y: number };
 export type Terrain =
@@ -58,6 +58,36 @@ export interface DomainAction {
   effects: Effects;
   requires?: Record<string, number>;
 }
+
+/** A data-only condition evaluated by the shared operations engine. */
+export interface ObjectiveRule {
+  source: "system" | "stat" | "personnel" | "flag" | "objectiveTurns" | "objective";
+  key?: string;
+  operator: "gte" | "lte" | "equals" | "present";
+  value?: number;
+}
+
+/**
+ * Mission goals are content, not UI decoration. Their state is derived from the
+ * same resources, systems and decisions that resolve a turn.
+ */
+export interface OperationObjective {
+  id: string;
+  label: string;
+  briefing: string;
+  requires: ObjectiveRule[];
+  /** Alternative fully-valid paths, such as sortie OR deliberate preservation. */
+  anyOf?: ObjectiveRule[][];
+}
+
+/** Ordered from best to fallback; terminal endings may close a mission early. */
+export interface OperationEnding {
+  id: Outcome["id"];
+  title: string;
+  description: string;
+  requires?: ObjectiveRule[];
+  terminal?: boolean;
+}
 export interface OperationDefinition {
   title: string;
   commander: string;
@@ -79,6 +109,8 @@ export interface OperationDefinition {
   actions: DomainAction[];
   reserve: Partial<Resources>;
   objective: Point;
+  objectives: OperationObjective[];
+  endings: OperationEnding[];
   mapNote: string;
 }
 export interface Transmission {
@@ -106,6 +138,19 @@ export interface OperationState {
   reserve: Partial<Resources>;
   reports: string[];
   objectiveTurns: number;
+}
+
+export interface ObjectiveStatus {
+  id: string;
+  label: string;
+  briefing: string;
+  complete: boolean;
+  /** The first declared criterion gives the HUD an honest current/target readout. */
+  current?: number;
+  target?: number;
+  operator?: ObjectiveRule["operator"];
+  source?: ObjectiveRule["source"];
+  key?: string;
 }
 export type OperationCommand =
   | { type: "ORDER"; unitId: string; order: UnitOrder; target?: Point }

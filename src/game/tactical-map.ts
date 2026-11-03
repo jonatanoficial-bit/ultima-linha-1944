@@ -3,6 +3,7 @@ import type { GameState } from "../core/contracts";
 import type { Point, Terrain } from "../core/operations-types";
 import { observedEnemies, pathTo, terrainAt } from "../core/operations-engine";
 import { pointOnRoute, type TurnEvent } from "../core/turn-events";
+import { topDownSpriteUrl, visualForUnit } from "../content/unit-visuals";
 
 /** One persistent canvas: camera and terrain survive HUD updates. */
 export class CommandMap {
@@ -22,6 +23,7 @@ export class CommandMap {
   private progress = 0;
   private reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   private savedCamera?: { zoom: number; pan: Point };
+  private sprites = new Map<string, HTMLImageElement>();
   beginPlayback() {
     this.savedCamera = { zoom: this.zoom, pan: { ...this.pan } };
     this.zoom = Math.max(1.8, this.zoom);
@@ -137,7 +139,7 @@ export class CommandMap {
     this.resize();
   }
   adjustZoom(delta: number) {
-    this.zoom = Math.max(1, Math.min(3.5, this.zoom + delta));
+    this.zoom = Math.max(0.65, Math.min(2.2, this.zoom + delta));
     this.boundPan();
     this.draw();
   }
@@ -145,6 +147,18 @@ export class CommandMap {
     this.zoom = 1;
     this.pan = { x: 0, y: 0 };
     this.draw();
+  }
+  private spriteFor(unit: NonNullable<GameState["operation"]>["units"][number]) {
+    const source = topDownSpriteUrl(visualForUnit(this.state!.campaignId, unit).sprite);
+    let sprite = this.sprites.get(source);
+    if (!sprite) {
+      sprite = new Image();
+      sprite.decoding = "async";
+      sprite.addEventListener("load", () => this.draw(), { once: true });
+      sprite.src = source;
+      this.sprites.set(source, sprite);
+    }
+    return sprite.complete && sprite.naturalWidth > 0 ? sprite : undefined;
   }
   private boundPan() {
     this.pan.x = Math.max(
@@ -379,9 +393,9 @@ export class CommandMap {
         active = u.id === this.selected,
         x = ((moving?.x ?? u.x) + 0.5) * t,
         y = ((moving?.y ?? u.y) + 0.5) * t,
-        w = Math.max(18, t * 1.6),
+        w = Math.max(20, t * 1.75),
         h = w * 0.65;
-      drawFormation(c,x,y,w*.7,naval,hostile,active,Boolean(moving),this.reducedMotion?0:this.progress,u.role);
+      drawFormation(c,x,y,w*.7,naval,hostile,active,Boolean(moving),this.reducedMotion?0:this.progress,u.role,hostile ? undefined : this.spriteFor(u));
       c.font = "bold 10px monospace";
       c.textAlign = "center";
       const label = hostile

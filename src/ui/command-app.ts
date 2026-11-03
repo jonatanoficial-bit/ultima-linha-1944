@@ -28,6 +28,17 @@ import { stations, sceneUrl, communicationScene, communicationRole } from "../co
 import { TurnDirector } from "./turn-director";
 import type { TurnEvent } from "../core/turn-events";
 import "./immersion.css";
+import {
+  cancelOrder,
+  chooseDestination,
+  createMapCommandFlow,
+  pendingCommand,
+  selectFormation,
+  startOrder,
+  type MapCommandFlow,
+  type MapCommandStage,
+} from "./map-command-flow";
+import { unitCardAssetUrl, visualForUnit } from "../content/unit-visuals";
 
 const app = document.querySelector<HTMLElement>("#app")!;
 const missions = MISSIONS.filter((m) => m.campaignId !== "lab");
@@ -43,6 +54,8 @@ let story = newNarrative(),
   drawerOpen = false,
   selected = "hq",
   target: Point | undefined,
+  commandStage: MapCommandStage = "explore",
+  pendingOrder: UnitOrder | undefined,
   panel = "orders",
   notice = "",
   sound = false;
@@ -107,14 +120,29 @@ const orderLabels: Record<UnitOrder, string> = {
 };
 const btn = (action: string, text: string, cls = "", extra = "") =>
   `<button type="button" data-action="${action}" class="${cls}" ${extra}>${text}</button>`;
+const currentMapFlow = () => ({ selected, stage: commandStage, order: pendingOrder, target });
+const applyMapFlow = (flow: MapCommandFlow) => {
+  selected = flow.selected;
+  commandStage = flow.stage;
+  pendingOrder = flow.order;
+  target = flow.target;
+};
+const clearMapFlow = () => applyMapFlow(createMapCommandFlow(selected));
 const map = new CommandMap((p, id) => {
   if (director) return;
   if (id) {
-    selected = id;
-    target = undefined;
-  } else target = p;
+    applyMapFlow(selectFormation(currentMapFlow(), id));
+    const unit = game?.operation?.units.find((entry) => entry.id === id);
+    notice = `${unit?.name ?? "Formação"} selecionada. Escolha uma ação no cartão de campo.`;
+  } else {
+    const previous = commandStage;
+    applyMapFlow(chooseDestination(currentMapFlow(), p));
+    notice = commandStage === "preview" && previous === "destination"
+      ? `Destino ${p.x}, ${p.y} marcado. Revise e confirme a ordem.`
+      : "Selecione Deslocar antes de marcar um destino no mapa.";
+  }
   panel = "orders";
-  drawerOpen = true;
+  drawerOpen = false;
   render();
 });
 const cost = (values: Record<string, number | undefined>, systems = false) =>
@@ -319,7 +347,7 @@ function start(choice: string) {
     choice,
   );
   selected = game.operation!.units[0].id;
-  target = undefined;
+  clearMapFlow();
   screen = "game";
   panel = "orders";
   drawerOpen = false;
@@ -380,7 +408,7 @@ function render() {
     `url("${new URL(assetUrl(mission.visuals.backdrop), document.baseURI).href}")`,
   );
   if (screen === "menu") {
-    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar operação", "primary") : ""}${btn("new", hasSave() ? "Nova operação" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p></aside><footer class="title-footer"><span>Campanhas locais · progresso salvo neste navegador</span><span>EDIÇÃO 0.6 / ROSTOS DA LINHA</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
+    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar operação", "primary") : ""}${btn("new", hasSave() ? "Nova operação" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p></aside><footer class="title-footer"><span>Campanhas locais · progresso salvo neste navegador</span><span>EDIÇÃO 0.7 / MAPA E COMANDO</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
     app
       .querySelector(".title-actions")!
       .insertAdjacentHTML(
@@ -398,10 +426,13 @@ function render() {
     d = o.definition,
     event = pendingEvent(s),
     unit = o.units.find((u) => u.id === selected) ?? o.units[0];
-  selected = unit.id;
+  if (selected !== unit.id) {
+    selected = unit.id;
+    clearMapFlow();
+  }
   app.innerHTML = `<header class="command-bar"><div class="operation-name"><span class="eyebrow">${branchName[s.campaignId]} / ${s.phase === "ended" ? "ENCERRADA" : "EM OPERAÇÃO"} · T${Math.min(s.currentTurn,s.maxTurns)}</span><strong>${d.title}</strong></div><div class="clock"><strong>${dateLabel()}</strong><span>TURNO ${Math.min(s.currentTurn, s.maxTurns)} / ${s.maxTurns} · ${d.weather}</span></div><div class="bar-actions">${btn("sound", sound ? "♪ Som ligado" : "♪ Som desligado", "quiet", `aria-pressed="${sound}"`)}${btn("fullscreen", "⛶", "icon", 'aria-label="Alternar tela cheia"')}${btn("pause", "II", "icon", 'aria-label="Pausar e abrir menu"')}</div></header>
   <main class="command-layout"><aside class="roster"><div class="section-label">SEU COMANDO</div><p class="commander-name">${esc(d.commander)}<small>${esc(d.rank)}</small></p><div class="formation-list">${o.units.map((u) => btn("unit", `<span class="unit-symbol">${s.campaignId === "navy" ? "≋" : "⊠"}</span><span><strong>${esc(u.name)}</strong><small>${u.strength} capazes · ${u.x},${u.y}</small><small>${orderLabels[u.order]}${u.target ? ` → ${u.target.x},${u.target.y}` : ""}</small></span>`, u.id === selected ? "formation active" : "formation", `data-id="${u.id}" aria-pressed="${u.id === selected}"`)).join("")}</div><div class="roster-bottom"><span class="eyebrow">OBJETIVO</span><p>${esc(mission.operationalGoal)}</p><span class="coords">REFERÊNCIA ${d.objective.x} / ${d.objective.y}</span></div></aside>
-  <section class="map-column" aria-label="Teatro de operações"><div class="map-toolbar"><span>◈ CARTA TÁTICA <small>${observedEnemies(s).length} contatos observados</small></span><div>${btn("zoom-out", "−", "icon", 'aria-label="Reduzir mapa"')}${btn("zoom-in", "+", "icon", 'aria-label="Ampliar mapa"')}${btn("recenter", "⌖", "icon", 'aria-label="Recentrar mapa"')}${btn("history", "Arquivo", "quiet")}${btn("field-focus", fieldFocus ? "HUD" : "Foco", "quiet focus-toggle", `aria-pressed="${fieldFocus}" aria-label="Alternar foco no mapa"`)}${btn("drawer", drawerOpen ? "Fechar ordens" : "Ordens", "quiet drawer-controls", `aria-expanded="${drawerOpen}"`)}</div></div><div id="tactical-map" class="tactical-map"></div><div class="map-caption"><span>▨ FORMAÇÕES · <b>□ OBJETIVO</b> · SOMBRA: SEM OBSERVAÇÃO</span><span>Arraste para navegar</span></div>${event ? `<button class="incoming-banner" data-action="incoming"><span class="signal-dot"></span><span><strong>Comunicação aguardando resposta</strong><small>${esc(event.from)} — ${esc(event.title)}</small></span><b>ATENDER →</b></button>` : ""}<div class="field-notice" role="status">${esc(notice || "Aguardando suas ordens.")}</div></section>
+  <section class="map-column" aria-label="Teatro de operações"><div class="map-toolbar"><span>◈ CARTA TÁTICA <small>${observedEnemies(s).length} contatos observados</small></span><div>${btn("zoom-out", "−", "icon", 'aria-label="Reduzir mapa"')}${btn("zoom-in", "+", "icon", 'aria-label="Ampliar mapa"')}${btn("recenter", "⌖", "icon", 'aria-label="Recentrar mapa"')}${btn("history", "Arquivo", "quiet")}${btn("field-focus", fieldFocus ? "HUD" : "Foco", "quiet focus-toggle", `aria-pressed="${fieldFocus}" aria-label="Alternar foco no mapa"`)}${btn("drawer", drawerOpen ? "Fechar ordens" : "Posto", "quiet drawer-controls", `aria-expanded="${drawerOpen}"`)}</div></div><div id="tactical-map" class="tactical-map"></div>${commandDeck(unit)}<div class="map-caption"><span>▨ PRESENÇA DE CAMPO · <b>□ OBJETIVO</b> · SOMBRA: SEM OBSERVAÇÃO</span><span>Arraste para navegar</span></div>${event ? `<button class="incoming-banner" data-action="incoming"><span class="signal-dot"></span><span><strong>Comunicação aguardando resposta</strong><small>${esc(event.from)} — ${esc(event.title)}</small></span><b>ATENDER →</b></button>` : ""}<div class="field-notice" role="status">${esc(notice || "Aguardando suas ordens.")}</div></section>
   <aside class="orders-panel"><div class="drawer-heading"><span>POSTO DE COMANDO</span>${btn("drawer", "×", "quiet", 'aria-label="Fechar painel de comando"')}</div><nav class="panel-tabs" aria-label="Painéis de comando">${[
     ["orders", "Ordens"],
     ["radio", "Rádio"],
@@ -444,13 +475,31 @@ function render() {
     target,
   );
 }
+function orderSummary(order: UnitOrder, unitName: string, destination?: Point) {
+  if (order === "move") return `${unitName} seguirá para ${destination?.x}, ${destination?.y}. A rota é uma previsão; o campo pode atrasar o deslocamento.`;
+  if (order === "cover") return `${unitName} permanece e prepara cobertura para reduzir sua exposição.`;
+  if (order === "recon") return `${unitName} amplia a observação do setor durante a resolução do turno.`;
+  return `${unitName} mantém posição e preserva sua organização.`;
+}
+function commandDeck(unit: NonNullable<GameState["operation"]>["units"][number]) {
+  const s = game!, visual = visualForUnit(s.campaignId, unit);
+  const orderButtons = (["move", "cover", "recon", "hold"] as UnitOrder[])
+    .map((order) => btn("start-order", orderLabels[order], "field-order", `data-id="${order}"`))
+    .join("");
+  const status = commandStage === "destination"
+    ? `<div class="command-instruction"><strong>MARQUE O DESTINO</strong><span>Toque numa quadrícula vazia do mapa ou informe as coordenadas no Posto de Comando.</span>${btn("cancel-order", "Cancelar", "quiet")}</div>`
+    : commandStage === "preview" && pendingOrder
+      ? `<div class="command-instruction preview"><strong>PRÉVIA · ${orderLabels[pendingOrder]}</strong><span>${esc(orderSummary(pendingOrder, unit.name, target))}</span><div>${btn("cancel-order", "Voltar", "quiet")}${btn("confirm-order", "Confirmar ordem →", "primary")}</div></div>`
+      : `<div class="field-order-list" aria-label="Ações para ${esc(unit.name)}">${orderButtons}</div>`;
+  return `<section class="unit-command-deck" aria-label="Comando de ${esc(unit.name)}"><img src="${unitCardAssetUrl(s.campaignId, unit)}" alt="Arte de referência: ${esc(visual.classification)}"><div class="unit-command-copy"><span class="eyebrow">${esc(visual.classification)}</span><strong>${esc(unit.name)} · ${unit.strength} capazes</strong><small>${esc(unit.role)} · ${unit.x}, ${unit.y}</small></div>${status}</section>`;
+}
 function panelContent() {
   const s = game!,
     o = s.operation!,
     d = o.definition,
     u = o.units.find((x) => x.id === selected)!;
   if (panel === "orders")
-    return `<div class="section-label">${esc(u.name)} / ORDENS</div><p class="panel-lead">${target ? `Destino ${target.x}, ${target.y} selecionado.` : "Toque em um ponto do mapa para traçar a rota."}</p><form id="coordinates" class="coordinates"><label>X <input name="x" type="number" min="0" max="${d.columns - 1}" value="${target?.x ?? u.x}" required></label><label>Y <input name="y" type="number" min="0" max="${d.rows - 1}" value="${target?.y ?? u.y}" required></label><button type="submit">Marcar</button></form>${routeReadout()}<div class="order-grid">${(["move", "cover", "recon", "hold"] as UnitOrder[]).map((id) => btn("order", `${orderLabels[id]}<small>1 PC</small>`, "order", `data-id="${id}" ${!reduce(s, { type: "ORDER", unitId: u.id, order: id, target }).accepted ? "disabled" : ""}`)).join("")}</div><p class="micro">${u.orderedTurn === s.currentTurn ? "Ordem comprometida neste turno." : "Cada formação recebe uma ordem por turno. Deslocamentos seguem a rota ao resolver o período."}</p><div class="section-label">${s.campaignId === "air" ? "RECUPERAÇÃO DA ALA" : s.campaignId === "navy" ? "CONTROLE DE AVARIAS" : "TRABALHOS DE CAMPANHA"}</div>${d.actions
+    return `<div class="section-label">${esc(u.name)} / ORDENS</div><p class="panel-lead">${commandStage === "destination" ? "Etapa 2 de 3: marque o destino na carta tática." : commandStage === "preview" && pendingOrder ? `Etapa 3 de 3: revise ${orderLabels[pendingOrder].toLowerCase()} antes de confirmar.` : "Etapa 1 de 3: escolha uma ação; o mapa só recebe destino após Deslocar."}</p>${commandStage === "destination" ? `<form id="coordinates" class="coordinates"><label>X <input name="x" type="number" min="0" max="${d.columns - 1}" value="${target?.x ?? u.x}" required></label><label>Y <input name="y" type="number" min="0" max="${d.rows - 1}" value="${target?.y ?? u.y}" required></label><button type="submit">Marcar</button></form>` : ""}${routeReadout()}${commandStage === "preview" && pendingOrder ? `<div class="panel-order-preview"><p>${esc(orderSummary(pendingOrder, u.name, target))}</p><div>${btn("cancel-order", "Voltar", "quiet")}${btn("confirm-order", "Confirmar ordem →", "primary")}</div></div>` : `<div class="order-grid">${(["move", "cover", "recon", "hold"] as UnitOrder[]).map((id) => { const check = reduce(s, { type: "ORDER", unitId: u.id, order: id === "move" && !target ? "hold" : id, ...(id === "move" && target ? { target } : {}) }); return btn("start-order", `${orderLabels[id]}<small>1 PC</small>`, "order", `data-id="${id}" ${!check.accepted ? "disabled" : ""}`); }).join("")}</div>`}<p class="micro">${u.orderedTurn === s.currentTurn ? "Ordem comprometida neste turno." : "Cada formação recebe uma ordem por turno. Deslocamentos só são emitidos depois da prévia de rota."}</p><div class="section-label">${s.campaignId === "air" ? "RECUPERAÇÃO DA ALA" : s.campaignId === "navy" ? "CONTROLE DE AVARIAS" : "TRABALHOS DE CAMPANHA"}</div>${d.actions
       .map((a) => {
         const task = o.tasks.find((t) => t.actionId === a.id);
         const available = reduce(s, { type: "TASK", actionId: a.id });
@@ -520,7 +569,7 @@ function panelContent() {
     .join("")}`;
 }
 function routeReadout() {
-  if (!game || !target) return "";
+  if (!game || !target || pendingOrder !== "move" || commandStage !== "preview") return "";
   const o = game.operation!, unit = o.units.find(u => u.id === selected)!;
   const preview = reduce(game, { type: "ORDER", unitId: unit.id, order: "move", target });
   if (!preview.accepted) return `<p class="route-readout blocked">${esc(preview.reason)}</p>`;
@@ -582,7 +631,11 @@ app.addEventListener("submit", (e) => {
   if ((e.target as HTMLElement).id !== "coordinates") return;
   e.preventDefault();
   const data = new FormData(e.target as HTMLFormElement);
-  target = { x: Number(data.get("x")), y: Number(data.get("y")) };
+  applyMapFlow(chooseDestination(currentMapFlow(), {
+    x: Number(data.get("x")),
+    y: Number(data.get("y")),
+  }));
+  if (commandStage !== "preview") notice = "Escolha Deslocar antes de marcar uma coordenada.";
   render();
 });
 app.addEventListener("click", async (e) => {
@@ -668,7 +721,7 @@ app.addEventListener("click", async (e) => {
       lastPlayback = undefined;
       selected = game.operation!.units[0].id;
       drawerOpen = false;
-      target = undefined;
+      clearMapFlow();
       notice = "Operação retomada.";
       render();
       incoming();
@@ -755,7 +808,7 @@ app.addEventListener("click", async (e) => {
             game = loaded;
             screen = "game";
             selected = game.operation!.units[0].id;
-            target = undefined;
+            clearMapFlow();
             save();
             render();
             incoming();
@@ -791,10 +844,10 @@ app.addEventListener("click", async (e) => {
   }
   if (action === "unit") {
     stationView = false;
-    drawerOpen = true;
-    selected = id!;
-    target = undefined;
+    applyMapFlow(selectFormation(currentMapFlow(), id!));
+    drawerOpen = false;
     panel = "orders";
+    notice = `${game.operation!.units.find((unit) => unit.id === id)?.name ?? "Formação"} selecionada. Escolha uma ação no cartão de campo.`;
     render();
     return;
   }
@@ -833,24 +886,48 @@ app.addEventListener("click", async (e) => {
     );
     return;
   }
-  if (action === "order") {
-    const u = game.operation!.units.find((u) => u.id === selected)!,
-      order = id as UnitOrder;
-    const destination = target ? { ...target } : undefined;
-    const path = destination
-      ? pathTo(
-          game.operation!.definition,
-          u,
-          destination,
-          game.campaignId === "navy",
-        )
-      : [];
-    confirm(
-      `${orderLabels[order]} · ${u.name}`,
-      `<p>${order === "move" ? `Destino ${destination?.x},${destination?.y}. ${path.length} quadrículas na rota. O deslocamento pode durar vários turnos.` : order === "cover" ? "A formação mantém a posição e reduz sua exposição no contato." : order === "recon" ? "Vigias ampliam o alcance de observação e a informação a cada período." : "A formação permanece nesta posição."}</p><p class="effect-preview">1 ponto de comando · execução ao resolver o turno.</p>`,
-      () =>
-        execute({ type: "ORDER", unitId: u.id, order, target: destination }),
-    );
+  if (action === "start-order" || action === "order") {
+    const order = id as UnitOrder,
+      u = game.operation!.units.find((unit) => unit.id === selected)!;
+    const check = reduce(game, {
+      type: "ORDER",
+      unitId: u.id,
+      order: order === "move" && !target ? "hold" : order,
+      ...(order === "move" && target ? { target } : {}),
+    });
+    if (!check.accepted) {
+      notice = check.reason ?? "Esta formação não pode receber outra ordem agora.";
+      render();
+      return;
+    }
+    applyMapFlow(startOrder(currentMapFlow(), order));
+    drawerOpen = false;
+    notice = order === "move"
+      ? "Etapa 2 de 3: marque no mapa onde a formação deve terminar a rota."
+      : "Etapa 2 de 2: revise a ordem no cartão de campo e confirme quando estiver pronto.";
+    render();
+    return;
+  }
+  if (action === "cancel-order") {
+    clearMapFlow();
+    notice = "Prévia cancelada. Nenhum ponto de comando foi gasto.";
+    render();
+    return;
+  }
+  if (action === "confirm-order") {
+    const command = pendingCommand(currentMapFlow());
+    if (!command) {
+      notice = "Escolha uma ação antes de confirmar.";
+      render();
+      return;
+    }
+    if (command.order === "move" && !command.target) {
+      notice = "Marque um destino para concluir a ordem de deslocamento.";
+      render();
+      return;
+    }
+    clearMapFlow();
+    execute({ type: "ORDER", ...command });
     return;
   }
   if (action === "task") {
@@ -932,7 +1009,13 @@ document.addEventListener("keydown", (e) => {
     render();
   } else if (/^[1-5]$/.test(e.key)) {
     const unit = game?.operation?.units[Number(e.key) - 1];
-    if (unit) { stationView = false; selected = unit.id; target = undefined; drawerOpen = true; render(); }
+    if (unit) {
+      stationView = false;
+      applyMapFlow(selectFormation(currentMapFlow(), unit.id));
+      drawerOpen = false;
+      notice = `${unit.name} selecionada. Escolha uma ação no cartão de campo.`;
+      render();
+    }
   } else if (e.key === "Enter") {
     e.preventDefault();
     document.querySelector<HTMLButtonElement>('[data-action="end"]')?.click();

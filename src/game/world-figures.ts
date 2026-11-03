@@ -1,7 +1,11 @@
 /** Small world-space figures, distinct from the strategic counters. */
-export function drawFormation(c:CanvasRenderingContext2D,x:number,y:number,size:number,naval:boolean,hostile:boolean,active:boolean,moving:boolean,progress:number,role:string){
+export function drawFormation(c:CanvasRenderingContext2D,x:number,y:number,size:number,naval:boolean,hostile:boolean,active:boolean,moving:boolean,progress:number,role:string,sprite?:HTMLImageElement){
  c.save();c.translate(x,y);c.strokeStyle=active?'#f8d77b':hostile?'#d89175':'#d6dfbf';c.fillStyle=hostile?'#65483a':'#52634b';c.lineWidth=1.5;
- if(naval){
+ if(sprite && !hostile){
+  c.globalAlpha=active?1:.92;
+  const ratio=sprite.naturalWidth/Math.max(1,sprite.naturalHeight),w=size*2.9,h=w/ratio;
+  c.drawImage(sprite,-w/2,-h/2,w,h);
+ }else if(naval){
   c.beginPath();c.moveTo(0,-size*.9);c.lineTo(size*.3,-size*.35);c.lineTo(size*.3,size*.65);c.lineTo(-size*.3,size*.65);c.lineTo(-size*.3,-size*.35);c.closePath();c.fill();c.stroke();
   c.fillStyle='#a2aaa0';c.fillRect(-size*.15,-size*.25,size*.3,size*.5);c.fillStyle='#384744';c.fillRect(-size*.07,-size*.55,size*.14,size*.2);
   if(moving){c.strokeStyle='#bad5d680';for(let i=0;i<3;i++){const p=(progress+i/3)%1;c.beginPath();c.moveTo(-size*(.3+p*.5),size*(.8+p));c.lineTo(0,size*(.6+p));c.lineTo(size*(.3+p*.5),size*(.8+p));c.stroke();}}
@@ -13,7 +17,7 @@ export function drawFormation(c:CanvasRenderingContext2D,x:number,y:number,size:
   }
   if(/Comando/.test(role)){c.strokeStyle='#e9c77f';c.beginPath();c.moveTo(size*.85,size*.3);c.lineTo(size*.85,-size*.6);c.lineTo(size*1.2,-size*.4);c.lineTo(size*.85,-size*.25);c.stroke();}
  }
- if(active){c.strokeStyle='#edca7b';c.beginPath();c.ellipse(0,size*.7,size, size*.24,0,0,Math.PI*2);c.stroke();}
+ if(active){c.strokeStyle='#edca7b';c.beginPath();c.ellipse(0,size*.7,size*1.1, size*.27,0,0,Math.PI*2);c.stroke();}
  c.restore();
 }
 export function drawAircraft(c:CanvasRenderingContext2D,x:number,y:number,size:number){

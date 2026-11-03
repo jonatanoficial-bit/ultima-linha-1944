@@ -17,8 +17,11 @@ export class CommandMap {
   private pan = { x: 0, y: 0 };
   private width = 800;
   private height = 600;
-  private down?: { x: number; y: number; px: number; py: number };
+  private down?: { id: number; x: number; y: number; px: number; py: number };
   private moved = false;
+  private pointers = new Map<number, Point>();
+  private pinch?: { distance: number; zoom: number; world: Point };
+  private gestureWasPinch = false;
   private event?: TurnEvent;
   private progress = 0;
   private reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -50,7 +53,7 @@ export class CommandMap {
   constructor(private onSelect: (p: Point, unitId?: string) => void) {
     this.canvas.setAttribute(
       "aria-label",
-      "Mapa tático. Arraste para deslocar; use os botões para ampliar. Seleção por coordenadas disponível no painel de ordens.",
+      "Mapa tático. Arraste para navegar, use pinça ou os botões para ampliar, e use as setas para escolher um destino quando uma ordem de deslocamento estiver ativa.",
     );
     this.canvas.setAttribute("role", "img");
     this.canvas.tabIndex = 0;
@@ -66,19 +69,30 @@ export class CommandMap {
     });
     this.observer = new ResizeObserver(() => this.resize());
     this.canvas.addEventListener("pointerdown", (e) => {
-      this.down = {
-        x: e.clientX,
-        y: e.clientY,
-        px: this.pan.x,
-        py: this.pan.y,
-      };
-      this.moved = false;
+      const p = this.pointerPosition(e);
+      this.pointers.set(e.pointerId, p);
+      if (this.pointers.size === 1) {
+        this.down = { id: e.pointerId, x: p.x, y: p.y, px: this.pan.x, py: this.pan.y };
+        this.moved = false;
+        this.gestureWasPinch = false;
+      } else {
+        this.beginPinch();
+        this.moved = true;
+        this.gestureWasPinch = true;
+      }
       this.canvas.setPointerCapture(e.pointerId);
     });
     this.canvas.addEventListener("pointermove", (e) => {
-      if (!this.down) return;
-      const dx = e.clientX - this.down.x,
-        dy = e.clientY - this.down.y;
+      if (!this.pointers.has(e.pointerId)) return;
+      const p = this.pointerPosition(e);
+      this.pointers.set(e.pointerId, p);
+      if (this.pointers.size > 1) {
+        this.updatePinch();
+        return;
+      }
+      if (!this.down || this.down.id !== e.pointerId) return;
+      const dx = p.x - this.down.x,
+        dy = p.y - this.down.y;
       if (Math.hypot(dx, dy) > 5) this.moved = true;
       if (this.moved) {
         this.pan = { x: this.down.px + dx, y: this.down.py + dy };
@@ -87,34 +101,32 @@ export class CommandMap {
       }
     });
     this.canvas.addEventListener("pointerup", (e) => {
-      if (!this.moved && this.state?.operation) {
-        const r = this.canvas.getBoundingClientRect(),
-          g = this.geometry(),
-          d = this.state.operation.definition;
-        const p = {
-          x: Math.floor((e.clientX - r.left - g.x) / g.t),
-          y: Math.floor((e.clientY - r.top - g.y) / g.t),
-        };
-        if (p.x >= 0 && p.y >= 0 && p.x < d.columns && p.y < d.rows) {
-          const unit = this.state.operation.units.find(
-            (u) =>
-              u.strength > 0 &&
-              Math.abs(u.x - p.x) <= 1 &&
-              Math.abs(u.y - p.y) <= 1,
-          );
-          this.onSelect(p, unit?.id);
-        }
+      const p = this.pointerPosition(e), wasPinch = this.gestureWasPinch;
+      this.pointers.delete(e.pointerId);
+      this.pinch = undefined;
+      if (this.pointers.size === 1) {
+        const [id, remaining] = [...this.pointers.entries()][0];
+        this.down = { id, x: remaining.x, y: remaining.y, px: this.pan.x, py: this.pan.y };
+        this.moved = true;
+        return;
       }
-      this.down = undefined;
+      if (this.pointers.size === 0) {
+        if (!this.moved && !wasPinch) this.selectAt(p);
+        this.down = undefined;
+        this.gestureWasPinch = false;
+      }
     });
-    this.canvas.addEventListener("pointercancel", () => {
+    this.canvas.addEventListener("pointercancel", (e) => {
+      this.pointers.delete(e.pointerId);
       this.down = undefined;
+      this.pinch = undefined;
+      this.gestureWasPinch = false;
     });
     this.canvas.addEventListener(
       "wheel",
       (e) => {
         e.preventDefault();
-        this.adjustZoom(e.deltaY < 0 ? 0.2 : -0.2);
+        this.adjustZoom(e.deltaY < 0 ? 0.2 : -0.2, this.pointerPosition(e));
       },
       { passive: false },
     );
@@ -125,8 +137,9 @@ export class CommandMap {
     selected: string,
     target?: Point,
   ) {
-    if (this.state?.missionId !== state.missionId) {
-      this.zoom = 1;
+    const newMission = this.state?.missionId !== state.missionId;
+    if (newMission) {
+      this.zoom = 1.15;
       this.pan = { x: 0, y: 0 };
     }
     this.state = state;
@@ -137,16 +150,94 @@ export class CommandMap {
     container.append(this.canvas);
     this.observer.observe(container);
     this.resize();
+    if (newMission) this.focusOperation(true);
   }
-  adjustZoom(delta: number) {
-    this.zoom = Math.max(0.65, Math.min(2.2, this.zoom + delta));
-    this.boundPan();
+  adjustZoom(delta: number, anchor?: Point) {
+    if (!this.state?.operation) return;
+    const g = this.geometry();
+    const screen = anchor ?? { x: this.width / 2, y: this.height / 2 };
+    const world = { x: (screen.x - g.x) / g.t, y: (screen.y - g.y) / g.t };
+    this.zoom = this.clampZoom(this.zoom + delta);
+    this.focusWorld(world, screen);
     this.draw();
   }
   reset() {
     this.zoom = 1;
     this.pan = { x: 0, y: 0 };
     this.draw();
+  }
+  focusSelection() {
+    const unit = this.state?.operation?.units.find((entry) => entry.id === this.selected);
+    if (!unit) return;
+    this.zoom = Math.max(this.zoom, this.isWideViewport() ? 2.2 : 1.35);
+    this.focusWorld({ x: unit.x + 0.5, y: unit.y + 0.5 });
+    this.draw();
+  }
+  focusOperation(initial = false) {
+    const operation = this.state?.operation;
+    if (!operation) return;
+    const unit = operation.units.find((entry) => entry.id === this.selected) ?? operation.units[0];
+    if (!unit) return;
+    const objective = operation.definition.objective;
+    this.zoom = Math.max(this.zoom, initial && this.isWideViewport() ? 2.2 : 1.15);
+    this.focusWorld({
+      x: (unit.x + objective.x + 1) / 2,
+      y: (unit.y + objective.y + 1) / 2,
+    });
+    this.draw();
+  }
+  private clampZoom(value: number) {
+    return Math.max(0.65, Math.min(2.2, value));
+  }
+  private isWideViewport() {
+    return this.width / Math.max(1, this.height) > 1.65;
+  }
+  private pointerPosition(e: Pick<PointerEvent | WheelEvent, "clientX" | "clientY">): Point {
+    const r = this.canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  private selectAt(screen: Point) {
+    const s = this.state;
+    if (!s?.operation) return;
+    const g = this.geometry(), d = s.operation.definition;
+    const p = { x: Math.floor((screen.x - g.x) / g.t), y: Math.floor((screen.y - g.y) / g.t) };
+    if (p.x < 0 || p.y < 0 || p.x >= d.columns || p.y >= d.rows) return;
+    const unit = s.operation.units
+      .filter((entry) => entry.strength > 0)
+      .map((entry) => ({ entry, distance: Math.hypot((entry.x + 0.5) * g.t + g.x - screen.x, (entry.y + 0.5) * g.t + g.y - screen.y) }))
+      .filter(({ distance }) => distance <= Math.max(22, g.t * 1.15))
+      .sort((a, b) => (a.entry.id === this.selected ? -1 : b.entry.id === this.selected ? 1 : a.distance - b.distance))[0]?.entry;
+    this.onSelect(p, unit?.id);
+  }
+  private beginPinch() {
+    if (this.pointers.size < 2 || !this.state?.operation) return;
+    const [a, b] = [...this.pointers.values()];
+    const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const g = this.geometry();
+    this.pinch = {
+      distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+      zoom: this.zoom,
+      world: { x: (center.x - g.x) / g.t, y: (center.y - g.y) / g.t },
+    };
+    this.down = undefined;
+  }
+  private updatePinch() {
+    if (!this.pinch || this.pointers.size < 2) return;
+    const [a, b] = [...this.pointers.values()];
+    const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const distance = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+    this.zoom = this.clampZoom(this.pinch.zoom * distance / this.pinch.distance);
+    this.focusWorld(this.pinch.world, center);
+    this.draw();
+  }
+  private focusWorld(world: Point, screen = { x: this.width / 2, y: this.height / 2 }) {
+    if (!this.state?.operation) return;
+    const d = this.state.operation.definition, t = this.tileSize();
+    this.pan = {
+      x: screen.x - (this.width - d.columns * t) / 2 - world.x * t,
+      y: screen.y - (this.height - d.rows * t) / 2 - world.y * t,
+    };
+    this.boundPan();
   }
   private sprite(kind: TacticalSprite) {
     const source = topDownSpriteUrl(kind);
@@ -164,14 +255,13 @@ export class CommandMap {
     return this.sprite(visualForUnit(this.state!.campaignId, unit).sprite);
   }
   private boundPan() {
-    this.pan.x = Math.max(
-      (-this.width * (this.zoom - 1)) / 2,
-      Math.min((this.width * (this.zoom - 1)) / 2, this.pan.x),
-    );
-    this.pan.y = Math.max(
-      (-this.height * (this.zoom - 1)) / 2,
-      Math.min((this.height * (this.zoom - 1)) / 2, this.pan.y),
-    );
+    const d = this.state?.operation?.definition;
+    if (!d) return;
+    const t = this.tileSize();
+    const xLimit = Math.max(0, (d.columns * t - this.width) / 2);
+    const yLimit = Math.max(0, (d.rows * t - this.height) / 2);
+    this.pan.x = Math.max(-xLimit, Math.min(xLimit, this.pan.x));
+    this.pan.y = Math.max(-yLimit, Math.min(yLimit, this.pan.y));
   }
   private resize() {
     const parent = this.canvas.parentElement;
@@ -187,13 +277,12 @@ export class CommandMap {
     this.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     this.draw();
   }
-  private geometry() {
+  private tileSize() {
     const d = this.state!.operation!.definition;
-    const t =
-      Math.max(
-        1,
-        Math.min((this.width - 38) / d.columns, (this.height - 45) / d.rows),
-      ) * this.zoom;
+    return Math.max(1, Math.min((this.width - 38) / d.columns, (this.height - 45) / d.rows)) * this.zoom;
+  }
+  private geometry() {
+    const d = this.state!.operation!.definition, t = this.tileSize();
     return {
       t,
       x: (this.width - d.columns * t) / 2 + this.pan.x,
@@ -209,9 +298,11 @@ export class CommandMap {
       g = this.geometry(),
       t = g.t,
       naval = s.campaignId === "navy",
-      air = s.campaignId === "air";
+      air = s.campaignId === "air",
+      granular = t >= 9,
+      detailed = t >= 14;
     c.clearRect(0, 0, this.width, this.height);
-    c.fillStyle = naval ? "#162b32" : "#313731";
+    c.fillStyle = naval ? "#102c38" : "#27332d";
     c.fillRect(0, 0, this.width, this.height);
     c.save();
     c.translate(g.x, g.y);
@@ -233,16 +324,27 @@ export class CommandMap {
         c.fillStyle = colors[terrain];
         c.fillRect(x * t, y * t, t + 0.5, t + 0.5);
         // Coordinate-based grain: terrain stays stable across turns and animation frames.
-        c.fillStyle = n % 2 ? "#ffffff09" : "#00000008";
-        c.fillRect(x * t, y * t, t, t);
+        if (granular) {
+          c.fillStyle = n % 2 ? "#ffffff09" : "#00000008";
+          c.fillRect(x * t, y * t, t, t);
+        }
         if (terrain === "road") {
-          c.strokeStyle = "#665c4938"; c.lineWidth = Math.max(1, t * .09);
-          for (const offset of [.27, .7]) {
-            c.beginPath(); c.moveTo(x*t,(y+offset)*t); c.lineTo((x+1)*t,(y+offset)*t); c.stroke();
+          const links: Array<[number, number]> = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+          const centerX = (x + .5) * t, centerY = (y + .5) * t;
+          c.strokeStyle = "#d5c7a6";
+          c.lineWidth = Math.max(2, t * .42);
+          c.lineCap = "butt";
+          for (const [dx, dy] of links) {
+            const neighbor = terrainAt(d, { x: x + dx, y: y + dy });
+            if (neighbor === "road" || neighbor === "village" || neighbor === "rubble") {
+              c.beginPath(); c.moveTo(centerX, centerY); c.lineTo((x + .5 + dx * .58) * t, (y + .5 + dy * .58) * t); c.stroke();
+            }
           }
+          c.strokeStyle = "#5c503d62"; c.lineWidth = Math.max(.8, t * .05);
+          c.beginPath(); c.moveTo(x * t, (y + .33) * t); c.lineTo((x + 1) * t, (y + .33) * t); c.stroke();
         }
         // Static relief is derived from coordinates, never the turn.
-        if (terrain === "forest") {
+        if (terrain === "forest" && granular) {
           for (let k = 0; k < 2; k++) {
             const px = (x + 0.22 + (n % 43) / 100 + k * 0.25) * t,
               py = (y + 0.3 + k * 0.35) * t;
@@ -255,7 +357,7 @@ export class CommandMap {
             if (!air) { c.fillStyle = "#e6e9d5a0"; c.beginPath(); c.moveTo(px,py-t*.28); c.lineTo(px-t*.12,py); c.lineTo(px+t*.1,py); c.fill(); }
           }
         }
-        if (terrain === "village" || terrain === "rubble") {
+        if ((terrain === "village" || terrain === "rubble") && granular) {
           c.fillStyle = "#696c60";
           c.fillRect((x + 0.13) * t, (y + 0.17) * t, t * 0.66, t * 0.58);
           c.fillStyle = terrain === "rubble" ? "#99927f" : "#d5d0b6";
@@ -275,7 +377,7 @@ export class CommandMap {
             c.beginPath(); c.moveTo((x+.07)*t,(y+.32)*t); c.lineTo((x+.39)*t,(y+.06)*t); c.lineTo((x+.73)*t,(y+.32)*t); c.fill();
           }
         }
-        if (terrain === "field" && n % 3 === 0) {
+        if (terrain === "field" && detailed && n % 3 === 0) {
           c.strokeStyle = air ? "#7b8062" : "#b0b29a";
           c.lineWidth = 0.6;
           c.beginPath();
@@ -283,7 +385,7 @@ export class CommandMap {
           c.lineTo((x + 0.8) * t, (y + 0.6) * t);
           c.stroke();
         }
-        if (terrain === "water" && naval && n % 4 === 0) {
+        if (terrain === "water" && naval && granular && n % 4 === 0) {
           c.strokeStyle = "#496970";
           c.lineWidth = 0.8;
           c.beginPath();
@@ -296,32 +398,28 @@ export class CommandMap {
           );
           c.stroke();
         }
-        if (terrain === "runway" && y % 2 === 0 && x % 4 < 2) {
+        if (terrain === "runway" && granular && y % 2 === 0 && x % 4 < 2) {
           c.fillStyle = "#c0bc9a";
           c.fillRect(x * t, (y + 0.46) * t, t, 0.09 * t);
         }
       }
-    c.strokeStyle = naval ? "#69838655" : "#4d59402a";
-    c.lineWidth = 0.6;
-    for (let x = 0; x <= d.columns; x += 5) {
-      c.beginPath();
-      c.moveTo(x * t, 0);
-      c.lineTo(x * t, d.rows * t);
-      c.stroke();
+    if (granular) {
+      c.strokeStyle = naval ? "#86a1a039" : "#4d59402a";
+      c.lineWidth = .6;
+      for (let x = 0; x <= d.columns; x += 5) {
+        c.beginPath(); c.moveTo(x * t, 0); c.lineTo(x * t, d.rows * t); c.stroke();
+      }
+      for (let y = 0; y <= d.rows; y += 5) {
+        c.beginPath(); c.moveTo(0, y * t); c.lineTo(d.columns * t, y * t); c.stroke();
+      }
     }
-    for (let y = 0; y <= d.rows; y += 5) {
-      c.beginPath();
-      c.moveTo(0, y * t);
-      c.lineTo(d.columns * t, y * t);
-      c.stroke();
+    if (detailed) {
+      c.font = "10px monospace";
+      c.fillStyle = "#e4ddbd";
+      c.textAlign = "center";
+      for (let x = 0; x < d.columns; x += 5) c.fillText(String(x).padStart(2, "0"), (x + .5) * t, -5);
+      for (let y = 0; y < d.rows; y += 5) c.fillText(String(y).padStart(2, "0"), -14, (y + .7) * t);
     }
-    c.font = "10px monospace";
-    c.fillStyle = "#e4ddbd";
-    c.textAlign = "center";
-    for (let x = 0; x < d.columns; x += 5)
-      c.fillText(String(x).padStart(2, "0"), (x + 0.5) * t, -5);
-    for (let y = 0; y < d.rows; y += 5)
-      c.fillText(String(y).padStart(2, "0"), -14, (y + 0.7) * t);
     // Unknown terrain is shaded; hidden enemy counters never reach the renderer.
     for (let y = 0; y < d.rows; y++)
       for (let x = 0; x < d.columns; x++)
@@ -336,14 +434,23 @@ export class CommandMap {
           c.fillStyle = naval ? "#071b2550" : "#25332e38";
           c.fillRect(x * t, y * t, t + 0.5, t + 0.5);
         }
-    c.font = `${Math.max(8, Math.min(12, t * 0.8))}px Georgia`;
+    c.font = `${Math.max(8, Math.min(12, t * .8))}px Georgia`;
     c.textAlign = "center";
+    const namedPlaces = detailed
+      ? d.places
+      : d.places.filter((place) => Math.hypot(place.x - d.objective.x, place.y - d.objective.y) < 9);
     for (const place of d.places) {
+      const px = (place.x + .5) * t, py = (place.y + .5) * t;
+      c.fillStyle = naval ? "#d0ded0" : "#eee3bf";
+      c.strokeStyle = naval ? "#183842" : "#353d31";
+      c.lineWidth = 2;
+      c.beginPath(); c.arc(px, py, Math.max(2.5, t * .15), 0, Math.PI * 2); c.fill(); c.stroke();
+      if (!namedPlaces.includes(place)) continue;
       c.fillStyle = naval ? "#bdd0c4" : "#303c31";
       c.strokeStyle = naval ? "#15313a" : "#d8d4bc";
       c.lineWidth = 3;
-      c.strokeText(place.name, (place.x + 0.5) * t, (place.y + 0.1) * t);
-      c.fillText(place.name, (place.x + 0.5) * t, (place.y + 0.1) * t);
+      c.strokeText(place.name, px, (place.y + .12) * t);
+      c.fillText(place.name, px, (place.y + .12) * t);
     }
     c.strokeStyle = "#f2cd73";
     c.lineWidth = 2;
@@ -355,6 +462,18 @@ export class CommandMap {
       3 * t,
     );
     c.setLineDash([]);
+    c.fillStyle = "#f3ce79";
+    c.beginPath();
+    c.moveTo((d.objective.x + .5) * t, (d.objective.y + .15) * t);
+    c.lineTo((d.objective.x + .85) * t, (d.objective.y + .5) * t);
+    c.lineTo((d.objective.x + .5) * t, (d.objective.y + .85) * t);
+    c.lineTo((d.objective.x + .15) * t, (d.objective.y + .5) * t);
+    c.closePath(); c.fill();
+    if (granular) {
+      c.font = `${Math.max(8, Math.min(11, t * .72))}px monospace`;
+      c.textAlign = "left";
+      c.fillText("OBJETIVO", (d.objective.x + 1.05) * t, (d.objective.y + .55) * t);
+    }
     const selected = o.units.find((u) => u.id === this.selected),
       routeTarget = this.target ?? selected?.target;
     if (selected && routeTarget) {
@@ -403,11 +522,13 @@ export class CommandMap {
       c.textAlign = "center";
       const label = hostile
         ? "CONTATO"
-        : `${u.name.toUpperCase()} · ${u.strength}`;
+        : active || detailed
+          ? `${u.name.toUpperCase()} · ${u.strength}`
+          : `${u.name.slice(0, 1).toUpperCase()} · ${u.strength}`;
       const tw = c.measureText(label).width;
       c.fillStyle = "#152b25e8";
       c.fillRect(x - tw / 2 - 4, y + h / 2 + 3, tw + 8, 15);
-      c.fillStyle = hostile ? "#eab5a1" : "#f2ebce";
+      c.fillStyle = hostile ? "#eab5a1" : active ? "#f4d27e" : "#f2ebce";
       c.fillText(label, x, y + h / 2 + 14);
       if (u.order === "move" && u.target && !hostile) {
         c.fillStyle = "#f0d28b";

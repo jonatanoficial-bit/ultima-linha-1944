@@ -42,6 +42,22 @@ const command = (s: GameState, c: Command) => {
 };
 
 describe("persistent operations", () => {
+  it("ships the authored decision density and branch-specific command work", () => {
+    const expected = { army: 12, air: 8, navy: 8 };
+    for (const branch of Object.keys(expected) as (keyof typeof expected)[]) {
+      const operation = MISSIONS.find((m) => m.campaignId === branch)!.operation!;
+      expect(operation.events).toHaveLength(expected[branch]);
+    }
+    expect(MISSIONS[0].operation!.actions.map((action) => action.id)).toEqual(
+      expect.arrayContaining(["patrol", "trench"]),
+    );
+    expect(MISSIONS[1].operation!.actions.map((action) => action.id)).toEqual(
+      expect.arrayContaining(["crew-triage", "ground-training"]),
+    );
+    expect(MISSIONS[2].operation!.actions.map((action) => action.id)).toEqual(
+      expect.arrayContaining(["radio-repair", "watch-bill"]),
+    );
+  });
   it("does not count an enemy-controlled road as secured", () => {
     const s = ready("army");
     s.operation!.units.forEach((u) => {
@@ -178,6 +194,7 @@ describe("persistent operations", () => {
     s = command(s, { type: "END_TURN" });
     expect(s.resources.ammo).toBe(stock + 8);
     expect(s.operation!.reserve.ammo).toBe(8);
+    s = settle(s);
     s = command(s, { type: "END_TURN" });
     expect(s.resources.ammo).toBe(stock + 8);
     expect(s.operation!.transmissions[0].status).toBe("delivered");
@@ -325,5 +342,20 @@ describe("persistent operations", () => {
       decodeSave(JSON.stringify(changed), MISSIONS[1]).operation!.definition
         .title,
     ).toBe(MISSIONS[1].operation!.title);
+  });
+  it("migrates a pre-0.11 save to a career run and retains standalone mode", () => {
+    const career = ready("army", "legacy-run-mode");
+    const legacy = JSON.parse(encodeSave(career));
+    legacy.state.gameVersion = "0.10.0";
+    delete legacy.state.runMode;
+    expect(decodeSave(JSON.stringify(legacy), MISSIONS[0]).runMode).toBe("career");
+    const standalone = createInitialState(
+      MISSIONS[0],
+      "standalone-save",
+      undefined,
+      undefined,
+      "single",
+    );
+    expect(decodeSave(encodeSave(standalone), MISSIONS[0]).runMode).toBe("single");
   });
 });

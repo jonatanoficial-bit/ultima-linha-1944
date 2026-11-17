@@ -7,6 +7,7 @@ import type {
   CommandProfile,
   GameState,
   Resources,
+  RunMode,
   SupportPackage,
 } from "../core/contracts";
 import type { Effects, Point, UnitOrder } from "../core/operations-types";
@@ -18,7 +19,14 @@ import {
   pathTo,
   terrainAt,
 } from "../core/operations-engine";
-import { decodeSave, encodeSave, SAVE_PREFIX } from "../core/persistence";
+import {
+  decodeSave,
+  encodeSave,
+  MANUAL_SAVE_SLOT_COUNT,
+  manualSaveKey,
+  SAVE_PREFIX,
+  SINGLE_SAVE_PREFIX,
+} from "../core/persistence";
 import { MISSIONS } from "../content/missions";
 import { APPROVED_ASSETS, approvedAsset, assetUrl } from "../content/assets";
 import { CommandMap } from "../game/tactical-map";
@@ -54,6 +62,7 @@ let mission = missions[0],
   game: GameState | undefined,
   screen: "menu" | "prologue" | "game" = "menu";
 let story = newNarrative(),
+  pendingRunMode: RunMode = "career",
   storyAuto = false,
   storyReady = false,
   storyHidden = false,
@@ -215,21 +224,38 @@ function effectText(e: Effects) {
 function beep() {
   gameAudio.signal();
 }
+function autosaveKey(mode: RunMode = "career") {
+  return (mode === "career" ? SAVE_PREFIX : SINGLE_SAVE_PREFIX) + mission.id;
+}
 function save() {
   if (!game) return;
   try {
-    localStorage.setItem(SAVE_PREFIX + mission.id, encodeSave(game));
+    localStorage.setItem(autosaveKey(game.runMode), encodeSave(game));
   } catch {
     notice =
       "O navegador não permitiu salvar. Exporte o registro pelo menu de pausa.";
   }
 }
-function hasSave() {
+function hasSave(mode: RunMode = "career") {
   try {
-    return !!localStorage.getItem(SAVE_PREFIX + mission.id);
+    return !!localStorage.getItem(autosaveKey(mode));
   } catch {
     return false;
   }
+}
+type ManualSlot = { slot: number; state?: GameState; savedAt?: string };
+function manualSlots(): ManualSlot[] {
+  return Array.from({ length: MANUAL_SAVE_SLOT_COUNT }, (_, index) => {
+    const slot = index + 1;
+    try {
+      const raw = localStorage.getItem(manualSaveKey(mission.id, slot));
+      if (!raw) return { slot };
+      const payload = JSON.parse(raw) as { savedAt?: string };
+      return { slot, state: decodeSave(raw, mission), savedAt: payload.savedAt };
+    } catch {
+      return { slot };
+    }
+  });
 }
 function legacySave() {
   try {
@@ -381,7 +407,7 @@ function showOutcome() {
   saveCommandProfile();
   modal(
     game!.outcome!.title,
-    `<p class="dialogue">${esc(game!.outcome!.description)}</p><p>${game!.personnel.capable} capazes · ${game!.personnel.wounded} feridos · ${game!.personnel.missing} desaparecidos · ${game!.personnel.dead} mortos</p>${missionBoard()}<p>${game!.operation!.decisions.length} decisões registradas. O diário e os estoques permanecem disponíveis.</p>${settlement.reward ? `<p class="effect-preview">RECOMPENSA REGISTRADA · +${settlement.reward.reputation} reputação · +${settlement.reward.xp} experiência</p>` : ""}`,
+    `<p class="dialogue">${esc(game!.outcome!.description)}</p><p>${game!.personnel.capable} capazes · ${game!.personnel.wounded} feridos · ${game!.personnel.missing} desaparecidos · ${game!.personnel.dead} mortos</p>${missionBoard()}<p>${game!.operation!.decisions.length} decisões registradas. O diário e os estoques permanecem disponíveis.</p>${game!.runMode === "single" ? `<p class="effect-preview">MISSÃO AVULSA · resultado preservado apenas neste registro; nenhuma experiência, reputação ou dossiê foi alterado.</p>` : settlement.reward ? `<p class="effect-preview">RECOMPENSA REGISTRADA · +${settlement.reward.reputation} reputação · +${settlement.reward.xp} experiência</p>` : ""}`,
     btn("export", "Exportar registro") +
       btn("close", "Examinar o campo", "primary"),
     "outcome",
@@ -394,6 +420,7 @@ function start(choice: string) {
     `${mission.campaignId}-${Date.now()}`,
     choice,
     support,
+    pendingRunMode,
   );
   selected = game.operation!.units[0].id;
   clearMapFlow();
@@ -403,8 +430,9 @@ function start(choice: string) {
   stationView = true;
   lastPlayback = undefined;
   if (story.skipped) game.log.push({ turn: 0, category: "command", text: "Prólogo abreviado com resumo; decisão inicial escolhida explicitamente pelo jogador." });
-  notice =
-    "Selecione uma formação, indique um destino e emita sua ordem. O tempo só passa ao resolver o turno.";
+  notice = pendingRunMode === "career"
+    ? "Carreira ativa: cada resultado poderá entrar no dossiê. O tempo só passa ao resolver o turno."
+    : "Missão avulsa: resultados não alteram experiência, reputação ou dossiê. O tempo só passa ao resolver o turno.";
   save();
   render();
   incoming();
@@ -457,7 +485,7 @@ function render() {
     `url("${new URL(assetUrl(mission.visuals.backdrop), document.baseURI).href}")`,
   );
   if (screen === "menu") {
-    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar operação", "primary") : ""}${btn("new", hasSave() ? "Nova operação" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("dossier", "Dossiê de carreira")}${btn("quartermaster", "Apoio do QG")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p>${activeSupportFor() ? `<p class="assigned-support">QG designado · ${esc(activeSupportFor()!.title)}</p>` : ""}</aside><footer class="title-footer"><span>Campanhas locais · progresso salvo neste navegador</span><span>EDIÇÃO 0.10 / CAMPANHA E COMBATE</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
+    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar carreira", "primary") : ""}${hasSave("single") ? btn("continue-single", "Retomar missão avulsa") : ""}${btn("new", hasSave() ? "Nova carreira" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("single", "Missão avulsa · sem progresso")}${btn("dossier", "Dossiê de carreira")}${btn("quartermaster", "Apoio do QG")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p>${activeSupportFor() ? `<p class="assigned-support">QG designado · ${esc(activeSupportFor()!.title)}</p>` : ""}</aside><footer class="title-footer"><span>Campanhas locais · 5 registros manuais por frente</span><span>EDIÇÃO 0.11 / CARREIRA E COMANDO</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
     app
       .querySelector(".title-actions")!
       .insertAdjacentHTML(
@@ -479,7 +507,7 @@ function render() {
     selected = unit.id;
     clearMapFlow();
   }
-  app.innerHTML = `<header class="command-bar"><div class="operation-name"><span class="eyebrow">${branchName[s.campaignId]} / ${s.phase === "ended" ? "ENCERRADA" : "EM OPERAÇÃO"} · T${Math.min(s.currentTurn,s.maxTurns)}</span><strong>${d.title}</strong></div><div class="clock"><strong>${dateLabel()}</strong><span>TURNO ${Math.min(s.currentTurn, s.maxTurns)} / ${s.maxTurns} · ${d.weather}</span></div><div class="bar-actions">${btn("sound", sound ? "♪ Som ligado" : "♪ Som desligado", "quiet", `aria-pressed="${sound}"`)}${btn("fullscreen", "⛶", "icon", 'aria-label="Alternar tela cheia"')}${btn("pause", "II", "icon", 'aria-label="Pausar e abrir menu"')}</div></header>
+  app.innerHTML = `<header class="command-bar"><div class="operation-name"><span class="eyebrow">${branchName[s.campaignId]} / ${s.phase === "ended" ? "ENCERRADA" : "EM OPERAÇÃO"} · T${Math.min(s.currentTurn,s.maxTurns)}</span><strong>${d.title}</strong></div><div class="clock"><strong>${dateLabel()}</strong><span>TURNO ${Math.min(s.currentTurn, s.maxTurns)} / ${s.maxTurns} · ${d.weather}</span><small class="run-mode ${s.runMode}">${s.runMode === "career" ? "◆ CARREIRA · Dossiê ativo" : "◇ MISSÃO AVULSA · Sem progresso"}</small></div><div class="bar-actions">${btn("sound", sound ? "♪ Som ligado" : "♪ Som desligado", "quiet", `aria-pressed="${sound}"`)}${btn("fullscreen", "⛶", "icon", 'aria-label="Alternar tela cheia"')}${btn("pause", "II", "icon", 'aria-label="Pausar e abrir menu"')}</div></header>
   <main class="command-layout"><aside class="roster"><div class="section-label">SEU COMANDO</div><p class="commander-name">${esc(d.commander)}<small>${esc(d.rank)}</small></p><div class="formation-list">${o.units.map((u) => btn("unit", `<span class="unit-symbol">${s.campaignId === "navy" ? "≋" : "⊠"}</span><span><strong>${esc(u.name)}</strong><small>${u.strength} capazes · ${u.x},${u.y}</small><small>${orderLabels[u.order]}${u.target ? ` → ${u.target.x},${u.target.y}` : ""}</small></span>`, u.id === selected ? "formation active" : "formation", `data-id="${u.id}" aria-pressed="${u.id === selected}"`)).join("")}</div><div class="roster-bottom"><span class="eyebrow">OBJETIVO</span><p>${esc(mission.operationalGoal)}</p><span class="coords">REFERÊNCIA ${d.objective.x} / ${d.objective.y}</span></div></aside>
   <section class="map-column" aria-label="Teatro de operações"><div class="map-toolbar"><span>◈ CARTA TÁTICA <small>${observedEnemies(s).length} contatos observados</small></span><div>${btn("zoom-out", "−", "icon", 'aria-label="Reduzir mapa"')}${btn("zoom-in", "+", "icon", 'aria-label="Ampliar mapa"')}${btn("overview", "⌖", "icon", 'aria-label="Visão geral da operação"')}${btn("focus-unit", "◎", "icon", 'aria-label="Centralizar na formação selecionada"')}${btn("history", "Arquivo", "quiet")}${btn("field-focus", fieldFocus ? "HUD" : "Foco", "quiet focus-toggle", `aria-pressed="${fieldFocus}" aria-label="Alternar foco no mapa"`)}${btn("drawer", drawerOpen ? "Fechar ordens" : "Posto", "quiet drawer-controls", `aria-expanded="${drawerOpen}"`)}</div></div>${missionBoard(true)}${supportReceipt()}<div id="tactical-map" class="tactical-map"></div>${commandDeck(unit)}<div class="map-caption"><span>◈ MARCADOR DE LOCAL · <b>◇ OBJETIVO</b> · SOMBRA: SEM OBSERVAÇÃO</span><span>ARRASTE · PINÇA PARA AMPLIAR</span></div>${event ? `<button class="incoming-banner" data-action="incoming"><span class="signal-dot"></span><span><strong>Comunicação aguardando resposta</strong><small>${esc(event.from)} — ${esc(event.title)}</small></span><b>ATENDER →</b></button>` : ""}<div class="field-notice" role="status">${esc(notice || "Aguardando suas ordens.")}</div></section>
   <aside class="orders-panel"><div class="drawer-heading"><span>POSTO DE COMANDO</span>${btn("drawer", "×", "quiet", 'aria-label="Fechar painel de comando"')}</div><nav class="panel-tabs" aria-label="Painéis de comando">${[
@@ -709,9 +737,18 @@ function dossier() {
 function pause() {
   modal(
     "Comando em espera",
-    `<p>O tempo avança apenas quando você resolve o turno. Seu progresso é salvo após cada decisão.</p><label>Volume do ambiente e efeitos <input id="audio-level" type="range" min="0" max="100" value="${Math.round(gameAudio.getVolume()*100)}" aria-label="Volume do áudio"></label><div class="pause-actions">${btn("guide", "Como comandar")}${btn("sound", sound ? "Desligar ambiente" : "Ligar ambiente", "quiet", `aria-pressed="${sound}"`)}${btn("export", "Exportar partida")}${btn("import", "Importar partida")}${btn("archive", "Arquivo de guerra")}${btn("menu", "Menu principal")}</div>`,
+    `<p>O tempo avança apenas quando você resolve o turno. O autosave desta ${game!.runMode === "career" ? "carreira" : "missão avulsa"} é atualizado após cada decisão.</p><label>Volume do ambiente e efeitos <input id="audio-level" type="range" min="0" max="100" value="${Math.round(gameAudio.getVolume()*100)}" aria-label="Volume do áudio"></label><div class="pause-actions">${btn("manual-saves", "Registros manuais · 5")}${btn("guide", "Como comandar")}${btn("sound", sound ? "Desligar ambiente" : "Ligar ambiente", "quiet", `aria-pressed="${sound}"`)}${btn("export", "Exportar partida")}${btn("import", "Importar partida")}${btn("archive", "Arquivo de guerra")}${btn("menu", "Menu principal")}</div>`,
     btn("close", "Retomar operação", "primary"),
     "pause",
+  );
+}
+function manualSaves() {
+  const slots = manualSlots();
+  modal(
+    `Registros manuais · ${branchName[mission.campaignId]}`,
+    `<p>Há cinco posições independentes para esta frente. Carregar um registro não altera seu dossiê até uma operação de carreira ser concluída.</p><div class="manual-save-grid">${slots.map(({ slot, state, savedAt }) => `<article class="manual-save ${state ? "occupied" : "empty"}"><span class="eyebrow">POSIÇÃO ${String(slot).padStart(2, "0")}</span>${state ? `<strong>${state.runMode === "career" ? "CARREIRA" : "MISSÃO AVULSA"} · T${Math.min(state.currentTurn, state.maxTurns)}/${state.maxTurns}</strong><small>${savedAt ? esc(new Date(savedAt).toLocaleString("pt-BR")) : "Registro sem horário"}</small><p>${state.phase === "ended" ? "Relatório final disponível" : `${state.personnel.capable} capazes · ${state.operation!.decisions.length} decisões`}</p>` : `<strong>VAZIA</strong><p>Pronta para receber a situação atual.</p>`}<div>${btn("save-slot", state ? "Substituir" : "Salvar aqui", "quiet", `data-id="${slot}"`)}${btn("load-slot", "Carregar", "primary", `data-id="${slot}" ${state ? "" : "disabled"}`)}</div></article>`).join("")}</div>`,
+    btn("close", "Voltar ao posto", "primary"),
+    "manual-saves",
   );
 }
 function download() {
@@ -852,6 +889,7 @@ app.addEventListener("click", async (e) => {
   }
   if (action === "new") {
     const run = () => {
+      pendingRunMode = "career";
       screen = "prologue";
       story = newNarrative();
       storyAuto = false;
@@ -868,10 +906,20 @@ app.addEventListener("click", async (e) => {
     else run();
     return;
   }
+  if (action === "single") {
+    pendingRunMode = "single";
+    screen = "prologue";
+    story = newNarrative();
+    storyAuto = false;
+    storyHidden = false;
+    notice = "Missão avulsa: este resultado não concederá reputação nem experiência.";
+    render();
+    return;
+  }
   if (action === "continue") {
     try {
       game = decodeSave(
-        localStorage.getItem(SAVE_PREFIX + mission.id)!,
+        localStorage.getItem(autosaveKey("career"))!,
         mission,
       );
       screen = "game";
@@ -886,6 +934,27 @@ app.addEventListener("click", async (e) => {
     } catch {
       notice =
         "Não foi possível ler esta partida. O arquivo original foi preservado.";
+      render();
+    }
+    return;
+  }
+  if (action === "continue-single") {
+    try {
+      game = decodeSave(
+        localStorage.getItem(autosaveKey("single"))!,
+        mission,
+      );
+      screen = "game";
+      stationView = true;
+      lastPlayback = undefined;
+      selected = game.operation!.units[0].id;
+      drawerOpen = false;
+      clearMapFlow();
+      notice = "Missão avulsa retomada. O dossiê continua preservado.";
+      render();
+      incoming();
+    } catch {
+      notice = "Não foi possível ler esta missão avulsa. O arquivo original foi preservado.";
       render();
     }
     return;
@@ -941,6 +1010,53 @@ app.addEventListener("click", async (e) => {
   }
   if (action === "pause") {
     pause();
+    return;
+  }
+  if (action === "manual-saves") {
+    manualSaves();
+    return;
+  }
+  if (action === "save-slot" && game) {
+    const slot = Number(id);
+    if (!Number.isInteger(slot) || slot < 1 || slot > MANUAL_SAVE_SLOT_COUNT)
+      return;
+    try {
+      localStorage.setItem(manualSaveKey(mission.id, slot), encodeSave(game));
+      notice = `Registro manual ${String(slot).padStart(2, "0")} atualizado.`;
+      manualSaves();
+    } catch {
+      modal("Registro indisponível", "<p>O navegador não permitiu gravar esta posição manual.</p>");
+    }
+    return;
+  }
+  if (action === "load-slot") {
+    const slot = Number(id);
+    if (!Number.isInteger(slot) || slot < 1 || slot > MANUAL_SAVE_SLOT_COUNT)
+      return;
+    try {
+      const raw = localStorage.getItem(manualSaveKey(mission.id, slot));
+      if (!raw) throw new Error("Esta posição está vazia.");
+      const loaded = decodeSave(raw, mission);
+      confirm(
+        `Carregar posição ${String(slot).padStart(2, "0")}?`,
+        `<p>${loaded.runMode === "career" ? "Carreira" : "Missão avulsa"} · turno ${Math.min(loaded.currentTurn, loaded.maxTurns)}/${loaded.maxTurns}. O autosave correspondente será atualizado.</p>`,
+        () => {
+          game = loaded;
+          screen = "game";
+          stationView = true;
+          lastPlayback = undefined;
+          selected = game.operation!.units[0].id;
+          drawerOpen = false;
+          clearMapFlow();
+          notice = `Registro manual ${String(slot).padStart(2, "0")} carregado.`;
+          save();
+          render();
+          incoming();
+        },
+      );
+    } catch (err) {
+      modal("Registro indisponível", `<p>${esc((err as Error).message)}</p>`);
+    }
     return;
   }
   if (action === "export") {

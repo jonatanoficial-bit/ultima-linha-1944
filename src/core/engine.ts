@@ -8,6 +8,7 @@ import type {
   Outcome,
   Personnel,
   Resources,
+  RunMode,
   Stats,
   SupportPackage,
   Transition,
@@ -170,6 +171,7 @@ export const createInitialState = (
   seed: string,
   choiceId?: string,
   support?: SupportPackage,
+  runMode: RunMode = "career",
 ): GameState => {
   const choice =
     mission.introChoices.find((item) => item.id === choiceId) ??
@@ -197,13 +199,14 @@ export const createInitialState = (
     });
   }
   const initial: GameState = {
-    gameVersion: "0.10.0",
+    gameVersion: "0.11.0",
     operation: mission.operation
       ? createOperation(mission.operation)
       : undefined,
     contentVersion: mission.contentVersion,
     missionId: mission.id,
     campaignId: mission.campaignId,
+    runMode,
     seed,
     rngState: hashSeed(seed),
     phase: "playing",

@@ -377,6 +377,19 @@ a {
   margin-top: 6px;
   color: #a7b4a1;
 }
+.run-mode {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 3px 7px;
+  border: 1px solid #c9aa6670;
+  color: #dfc27c;
+  font: 8px "Courier New", monospace;
+  letter-spacing: 0.8px;
+}
+.run-mode.single {
+  border-color: #8ca79a70;
+  color: #b8d0c1;
+}
 .bar-actions {
   display: flex;
   align-items: center;
@@ -984,6 +997,56 @@ a {
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
+.manual-save-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 9px;
+}
+.manual-save {
+  display: grid;
+  grid-template-columns: minmax(125px, 1fr) minmax(140px, 1.5fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid #87917643;
+  background: #1020199a;
+}
+.manual-save.empty {
+  opacity: 0.74;
+  background: #1019149a;
+}
+.manual-save strong,
+.manual-save small,
+.manual-save p {
+  display: block;
+  margin: 0;
+}
+.manual-save strong {
+  color: #ead7a5;
+  font: 12px "Courier New", monospace;
+  letter-spacing: 0.6px;
+}
+.manual-save small,
+.manual-save p {
+  grid-column: 2;
+  font-size: 10px;
+  color: #acbaa8;
+}
+.manual-save p {
+  color: #c5cdb9;
+}
+.manual-save > div {
+  grid-column: 3;
+  grid-row: 1 / span 3;
+  display: grid;
+  gap: 6px;
+}
+.manual-save button {
+  min-width: 98px;
+  min-height: 34px;
+  padding: 7px 9px;
+  font-size: 11px;
+}
 kbd {
   border: 1px solid #718265;
   padding: 2px 6px;
@@ -1388,6 +1451,19 @@ kbd {
   }
   .pause-actions {
     grid-template-columns: 1fr;
+  }
+  .manual-save {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .manual-save small,
+  .manual-save p,
+  .manual-save > div {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .manual-save > div {
+    grid-template-columns: 1fr 1fr;
   }
   .dialog-top .eyebrow {
     font-size: 8px;

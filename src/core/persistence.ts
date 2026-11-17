@@ -2,6 +2,11 @@ import type { GameState, MissionPack } from "./contracts";
 import { assertState } from "./engine";
 
 export const SAVE_PREFIX = "ultima-linha-1944/command-save/v3/";
+export const SINGLE_SAVE_PREFIX = "ultima-linha-1944/command-single/v1/";
+export const MANUAL_SAVE_PREFIX = "ultima-linha-1944/command-slot/v1/";
+export const MANUAL_SAVE_SLOT_COUNT = 5;
+export const manualSaveKey = (missionId: string, slot: number) =>
+  `${MANUAL_SAVE_PREFIX}${missionId}/${slot}`;
 /** Reject partial or foreign payloads. Definitions always come from the installed mission pack. */
 export function decodeSave(raw: string, mission: MissionPack): GameState {
   const payload = JSON.parse(raw);
@@ -9,13 +14,17 @@ export function decodeSave(raw: string, mission: MissionPack): GameState {
   if (
     payload.version !== 3 ||
     !s ||
-    !["0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0"].includes(s.gameVersion) ||
+    !["0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0"].includes(s.gameVersion) ||
     s.missionId !== mission.id ||
     s.campaignId !== mission.campaignId ||
     !s.operation ||
     !mission.operation
   )
     throw new Error("Este arquivo não pertence a esta versão da operação.");
+  // Saves before 0.11 predate standalone missions and are therefore careers.
+  if (s.runMode === undefined) s.runMode = "career";
+  if (s.runMode !== "career" && s.runMode !== "single")
+    throw new Error("Tipo de operação inválido.");
   if (
     !["playing", "ended"].includes(s.phase) ||
     !Number.isInteger(s.currentTurn) ||

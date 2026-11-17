@@ -128,6 +128,44 @@ const armyEvents: RadioEvent[] = [
     ],
   ),
   event(
+    "ground-rations",
+    2,
+    "Sargento de intendência",
+    "Rações para a noite",
+    "A neve atrasou a última viatura. Há comida para manter o ritmo de parte da companhia, ou conservar a reserva para uma retirada longa.",
+    [
+      [
+        "Distribuir a reserva para a primeira linha",
+        "Rações −3; fadiga −4; moral +3.",
+        { resources: { food: -3 }, stats: { fatigue: -4, morale: 3 }, flag: "field-rations" },
+      ],
+      [
+        "Racionar e manter a reserva de marcha",
+        "Prontidão +4; moral −2.",
+        { stats: { readiness: 4, morale: -2 }, flag: "march-rations" },
+      ],
+    ],
+  ),
+  event(
+    "ground-engineers",
+    4,
+    "Cpl. Isaac Turner · rádio",
+    "Uma brecha na linha",
+    "Turner localizou uma passagem sem cobertura entre a estrada e o bosque. Equipe de trabalho e observadores não cabem no mesmo ponto ao mesmo tempo.",
+    [
+      [
+        "Fechar a brecha com a equipe de trabalho",
+        "Materiais −2; defesa +7; fadiga +2.",
+        { resources: { materials: -2 }, stats: { defense: 7, fatigue: 2 }, flag: "engineer-priority" },
+      ],
+      [
+        "Manter observadores sobre a passagem",
+        "Informação +8; defesa −2.",
+        { stats: { intelligence: 8, defense: -2 }, flag: "watched-gap" },
+      ],
+    ],
+  ),
+  event(
     "ground-missing",
     5,
     "Posto Maple",
@@ -143,6 +181,25 @@ const armyEvents: RadioEvent[] = [
         "Manter a reserva protegendo a estrada",
         "Defesa +5; confiança −3.",
         { stats: { defense: 5 }, trust: -3 },
+      ],
+    ],
+  ),
+  event(
+    "ground-ammunition",
+    6,
+    "Sargento Brooks",
+    "Fogo de cobertura",
+    "Brooks informa que os homens podem cobrir a estrada agora, mas a caixa de munição aberta não voltará para o abrigo antes do escurecer.",
+    [
+      [
+        "Distribuir munição para cobrir a estrada",
+        "Munição −10; defesa +8.",
+        { resources: { ammo: -10 }, stats: { defense: 8 }, flag: "road-cover" },
+      ],
+      [
+        "Conservar o estoque para a próxima janela",
+        "Prontidão +3; defesa −3.",
+        { stats: { readiness: 3, defense: -3 }, flag: "ammo-reserve" },
       ],
     ],
   ),
@@ -170,6 +227,30 @@ const armyEvents: RadioEvent[] = [
     ],
   ),
   event(
+    "ground-ward",
+    9,
+    "2nd Lt. Helen Ward",
+    "Escolha na enfermaria",
+    "Ward pode estabilizar os homens mais graves com o último kit disponível, ou reforçar o abrigo para impedir que novos feridos cheguem expostos.",
+    [
+      [
+        "Liberar um kit para estabilização imediata",
+        "Kits médicos −1; moral +6; fadiga −5.",
+        { resources: { medKits: -1 }, stats: { morale: 6, fatigue: -5 }, flag: "ward-stabilized" },
+      ],
+      [
+        "Usar material no abrigo da enfermaria",
+        "Materiais −2; defesa +5.",
+        { resources: { materials: -2 }, stats: { defense: 5 }, flag: "ward-shelter" },
+      ],
+      [
+        "Concentrar a equipe sem gastar reserva",
+        "Prontidão −3; confiança +3.",
+        { stats: { readiness: -3 }, trust: 3 },
+      ],
+    ],
+  ),
+  event(
     "ground-civilian",
     10,
     "Samuel Brooks",
@@ -193,6 +274,25 @@ const armyEvents: RadioEvent[] = [
     ],
   ),
   event(
+    "ground-signal",
+    12,
+    "Major Andrew Reed · batalhão",
+    "Janela de rádio",
+    "Por alguns minutos a interferência baixa. Reed pede um relatório curto: efetivo, rota e intenção. A bateria do posto não suporta conversa longa.",
+    [
+      [
+        "Enviar o quadro completo ao batalhão",
+        "Baterias −1; rádio +9; confiança +4.",
+        { resources: { batteries: -1 }, stats: { radio: 9 }, trust: 4, flag: "full-report" },
+      ],
+      [
+        "Transmitir somente a rota e manter escuta",
+        "Rádio +4; informação +5.",
+        { stats: { radio: 4, intelligence: 5 }, flag: "short-report" },
+      ],
+    ],
+  ),
+  event(
     "ground-late",
     14,
     "Major Andrew Reed",
@@ -208,6 +308,25 @@ const armyEvents: RadioEvent[] = [
         "Reafirmar a defesa até o amanhecer",
         "Defesa +8; fadiga +6.",
         { stats: { defense: 8, fatigue: 6 }, flag: "last-stand" },
+      ],
+    ],
+  ),
+  event(
+    "ground-dawn",
+    16,
+    "1st Sgt. Samuel Brooks",
+    "Antes do amanhecer",
+    "Brooks precisa de uma ordem para a última rotação. Descansar uma seção deixa a linha mais fina; mantê-la inteira cobra dos homens que já estão no limite.",
+    [
+      [
+        "Rodar a seção exausta para o abrigo",
+        "Rações −2; fadiga −10; prontidão +2.",
+        { resources: { food: -2 }, stats: { fatigue: -10, readiness: 2 }, flag: "dawn-rotation" },
+      ],
+      [
+        "Sustentar a linha até clarear",
+        "Defesa +10; fadiga +7.",
+        { stats: { defense: 10, fatigue: 7 }, flag: "dawn-line" },
       ],
     ],
   ),
@@ -286,6 +405,44 @@ const airEvents: RadioEvent[] = [
         "Adiar e assumir a responsabilidade",
         "Legitimidade −5; moral +7. Preservação deliberada registrada.",
         { stats: { legitimacy: -5, morale: 7 }, flag: "preserve-air" },
+      ],
+    ],
+  ),
+  event(
+    "air-parts",
+    8,
+    "Chefe de manutenção",
+    "Uma peça, duas prioridades",
+    "A oficina consegue recuperar um conjunto de ignição ou guardar as peças para manter a pista operacional depois da próxima chuva.",
+    [
+      [
+        "Aplicar peças na aeronave mais promissora",
+        "Peças −2; prontidão +6.",
+        { systems: { parts: -2 }, stats: { readiness: 6 }, flag: "aircraft-priority" },
+      ],
+      [
+        "Guardar as peças e reorganizar a escala",
+        "Prontidão −4; moral +3.",
+        { stats: { readiness: -4, morale: 3 }, flag: "parts-held" },
+      ],
+    ],
+  ),
+  event(
+    "air-medical",
+    9,
+    "Enfermaria",
+    "A equipe de solo também cede",
+    "Um mecânico desmaiou no pátio. A enfermaria pode usar um kit e liberar alguém para a escala, ou você pode reduzir a carga de todos e aceitar o atraso.",
+    [
+      [
+        "Liberar um kit e estabilizar a equipe",
+        "Kits médicos −1; fadiga −7; moral +4.",
+        { resources: { medKits: -1 }, stats: { fatigue: -7, morale: 4 }, flag: "ground-crew-treated" },
+      ],
+      [
+        "Reduzir a escala e preservar a equipe",
+        "Prontidão −3; fadiga −4; confiança +3.",
+        { stats: { readiness: -3, fatigue: -4 }, trust: 3 },
       ],
     ],
   ),
@@ -406,6 +563,25 @@ const navyEvents: RadioEvent[] = [
     ],
   ),
   event(
+    "nav-compartment",
+    9,
+    "Chefe de máquinas",
+    "Compartimento inundado",
+    "A água alcançou um compartimento auxiliar. Selá-lo protege a estabilidade, mas deixa material de reparo para trás; esvaziá-lo consome peças que talvez façam falta perto do porto.",
+    [
+      [
+        "Selar o compartimento e preservar a estabilidade",
+        "Inundação −7; propulsão −4.",
+        { systems: { flooding: -7, propulsion: -4 }, flag: "sealed-compartment" },
+      ],
+      [
+        "Usar peças para manter o compartimento ativo",
+        "Peças −1; inundação −4; propulsão +5.",
+        { systems: { parts: -1, flooding: -4, propulsion: 5 }, flag: "active-compartment" },
+      ],
+    ],
+  ),
+  event(
     "nav-fuel",
     10,
     "Máquinas",
@@ -421,6 +597,25 @@ const navyEvents: RadioEvent[] = [
         "Manter o ritmo para alcançar a costa",
         "Prontidão +7; combustível −3.",
         { stats: { readiness: 7 }, systems: { fuel: -3 } },
+      ],
+    ],
+  ),
+  event(
+    "nav-hearing",
+    11,
+    "Oficial de ponte",
+    "A voz do grupo-tarefa",
+    "O rádio volta por uma janela curta. O grupo-tarefa pedirá explicações pelo dano, pela rota e pelo estado dos homens quando houver sinal suficiente.",
+    [
+      [
+        "Transmitir o relatório de avarias completo",
+        "Baterias −1; rádio +8; confiança +4.",
+        { resources: { batteries: -1 }, stats: { radio: 8 }, trust: 4, flag: "damage-report" },
+      ],
+      [
+        "Manter silêncio e concentrar a ponte no retorno",
+        "Prontidão +4; legitimidade −3.",
+        { stats: { readiness: 4, legitimacy: -3 }, flag: "silent-return" },
       ],
     ],
   ),
@@ -556,6 +751,26 @@ export const OPERATIONS: Record<BranchId, OperationDefinition> = {
         duration: 2,
         cost: { materials: 3 },
         effects: { stats: { defense: 12, fatigue: -8 } },
+      },
+      {
+        id: "patrol",
+        label: "Varrer o bosque",
+        description:
+          "Duas patrulhas por dois turnos. Converte rações em informação, mas cobra dos homens expostos.",
+        ap: 1,
+        duration: 2,
+        cost: { food: 2 },
+        effects: { stats: { intelligence: 12, fatigue: 4 }, flag: "patrol-swept" },
+      },
+      {
+        id: "trench",
+        label: "Reforçar trincheiras",
+        description:
+          "Obra de dois turnos. Gasta material para aumentar cobertura real da companhia.",
+        ap: 2,
+        duration: 2,
+        cost: { materials: 4 },
+        effects: { stats: { defense: 16, readiness: 3 }, flag: "trenches-reinforced" },
       },
     ],
     reserve: { ammo: 16, medKits: 4, food: 6 },
@@ -728,6 +943,26 @@ export const OPERATIONS: Record<BranchId, OperationDefinition> = {
           stats: { intelligence: 14 },
         },
       },
+      {
+        id: "crew-triage",
+        label: "Estabilizar equipe de solo",
+        description:
+          "Um período de atendimento. Usa um kit e devolve condição de trabalho à equipe de manutenção.",
+        ap: 1,
+        duration: 1,
+        cost: { medKits: 1 },
+        effects: { stats: { morale: 6, fatigue: -8 }, flag: "crew-triage" },
+      },
+      {
+        id: "ground-training",
+        label: "Treinar célula de solo",
+        description:
+          "Dois períodos para padronizar procedimentos de pista e hangar; melhora prontidão com desgaste controlado.",
+        ap: 1,
+        duration: 2,
+        cost: { food: 2 },
+        effects: { stats: { readiness: 9, fatigue: 2 }, flag: "ground-training" },
+      },
     ],
     reserve: { ammo: 12, medKits: 3, materials: 4 },
     objective: { x: 23, y: 18 },
@@ -884,6 +1119,27 @@ export const OPERATIONS: Record<BranchId, OperationDefinition> = {
         duration: 1,
         cost: {},
         effects: { systems: { flooding: -8 }, stats: { fatigue: 4 } },
+      },
+      {
+        id: "radio-repair",
+        label: "Reparar conjunto de rádio",
+        description:
+          "Um período para recuperar o conjunto de transmissão; usa bateria e peça de reposição.",
+        ap: 1,
+        duration: 1,
+        cost: { batteries: 1 },
+        systemsCost: { parts: 1 },
+        effects: { stats: { radio: 14, intelligence: 4 }, flag: "radio-repaired" },
+      },
+      {
+        id: "watch-bill",
+        label: "Redistribuir vigias",
+        description:
+          "Um período de rotação de vigia. Dá prontidão à ponte, mas exige rações e adiciona desgaste.",
+        ap: 1,
+        duration: 1,
+        cost: { food: 2 },
+        effects: { stats: { readiness: 7, fatigue: 4 }, flag: "watch-rotated" },
       },
     ],
     reserve: { ammo: 12, medKits: 3, materials: 3 },

@@ -35,7 +35,9 @@ export const rewardForOutcome = (state: GameState): { reputation: number; xp: nu
 };
 
 export const settleMission = (profile: CommandProfile, state: GameState): { profile: CommandProfile; reward?: { reputation: number; xp: number } } => {
-  if (!state.outcome || profile.settledSeeds.includes(state.seed)) return { profile };
+  // A standalone mission is a safe place to rehearse the systems, never a way
+  // to farm reputation or rewrite a commander's career record.
+  if (!state.outcome || state.runMode === "single" || profile.settledSeeds.includes(state.seed)) return { profile };
   const reward = rewardForOutcome(state);
   const branch = state.campaignId === "lab" ? undefined : state.campaignId;
   const status = objectiveStatuses(state);

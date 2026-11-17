@@ -5,6 +5,8 @@ import type {
 } from "./operations-types";
 export type BranchId = "army" | "air" | "navy" | "lab";
 export type GamePhase = "playing" | "ended";
+/** Career records are intentionally separate from a consequence-free standalone run. */
+export type RunMode = "career" | "single";
 export type ActionId =
   | "rally"
   | "triage"
@@ -167,6 +169,7 @@ export interface GameState {
   contentVersion: string;
   missionId: string;
   campaignId: BranchId;
+  runMode: RunMode;
   seed: string;
   rngState: number;
   phase: GamePhase;

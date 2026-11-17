@@ -89,4 +89,26 @@ describe("mission engine", () => {
     expect(second.reward).toBeUndefined();
     expect(second.profile).toEqual(first.profile);
   });
+
+  it("keeps a standalone mission out of reputation and career history", () => {
+    const closed = {
+      ...createInitialState(
+        mission,
+        "standalone-reward-seed",
+        "leaders",
+        undefined,
+        "single",
+      ),
+      phase: "ended" as const,
+      outcome: {
+        id: "hold" as const,
+        title: "Exercício concluído",
+        description: "Teste",
+      },
+    };
+    const profile = createCommandProfile();
+    const result = settleMission(profile, closed);
+    expect(result.reward).toBeUndefined();
+    expect(result.profile).toEqual(profile);
+  });
 });

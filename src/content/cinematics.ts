@@ -1,8 +1,20 @@
-import manifest from "../../public/assets/cinematic-scenes.manifest.json";
 import type { MissionPack } from "../core/contracts";
 import type { NarrativePlan } from "../core/narrative";
 
-export const CINEMATICS = manifest.assets;
+/** Runtime subset of the immutable public manifest. The complete approval
+ * manifest stays in public/assets for archival verification; Vite must not
+ * import files from public/ as source modules during local development. */
+export const CINEMATICS = [
+  { id: "CIN02", missionId: "bastogne_east_cedar_1944", sequenceInCampaign: 1, title: "A notícia que muda tudo", runtimePath: "assets/missions/bastogne_east_cedar_1944/scenes/CIN02_command_ruins.png", description: "Daniel Mercer recebe de Thomas Bell a notícia da morte de Hayes; cadeira vazia ao fundo." },
+  { id: "CIN03", missionId: "bastogne_east_cedar_1944", sequenceInCampaign: 2, title: "Posto médico improvisado", runtimePath: "assets/missions/bastogne_east_cedar_1944/scenes/CIN03_aid_station.png", description: "Helen Ward atende soldado ferido e consciente; Mercer observa. A decisão médica ainda não foi tomada." },
+  { id: "CIN04", missionId: "bastogne_east_cedar_1944", sequenceInCampaign: 3, title: "A ordem que chega pela metade", runtimePath: "assets/missions/bastogne_east_cedar_1944/scenes/CIN04_radio_corner.png", description: "Cabo Isaac Turner opera rádio de campanha enquanto Mercer aguarda uma mensagem incompleta." },
+  { id: "AIR_CIN01", missionId: "airfield_last_wing_1944", sequenceInCampaign: 1, title: "Sobreviver à queda", runtimePath: "assets/missions/airfield_last_wing_1944/scenes/AIR_CIN01_crash_survivor.png", description: "Thomas E. Walker ajoelhado diante dos destroços, antes de buscar ajuda." },
+  { id: "AIR_CIN02", missionId: "airfield_last_wing_1944", sequenceInCampaign: 2, title: "A base devastada", runtimePath: "assets/missions/airfield_last_wing_1944/scenes/AIR_CIN02_ruined_airfield.png", description: "Walker retorna ao aeródromo avariado e vê pista, hangares e aeronaves danificadas." },
+  { id: "AIR_CIN03", missionId: "airfield_last_wing_1944", sequenceInCampaign: 3, title: "Um esquadrão nas suas mãos", runtimePath: "assets/missions/airfield_last_wing_1944/scenes/AIR_CIN03_interim_command.png", description: "Oficial superior comunica a Walker comando interino, numa sala de operações danificada." },
+  { id: "NAV_CIN01", missionId: "pacific_broken_watch_1944", sequenceInCampaign: 1, title: "A ponte sem comando", runtimePath: "assets/missions/pacific_broken_watch_1944/scenes/NAV_CIN01_broken_bridge.png", description: "Robert J. Sullivan enfrenta a vacância do comando na ponte avariada do contratorpedeiro." },
+  { id: "NAV_CIN02", missionId: "pacific_broken_watch_1944", sequenceInCampaign: 2, title: "Homens e máquinas precisam de você", runtimePath: "assets/missions/pacific_broken_watch_1944/scenes/NAV_CIN02_crew_in_peril.png", description: "Tripulantes escolhem entre prioridades concorrentes: socorro de um ferido ou serviço de avarias." },
+  { id: "NAV_CIN03", missionId: "pacific_broken_watch_1944", sequenceInCampaign: 3, title: "Definir um rumo sem ter certeza", runtimePath: "assets/missions/pacific_broken_watch_1944/scenes/NAV_CIN03_course_and_radio.png", description: "Sullivan examina carta náutica enquanto operador tenta contato por rádio; rota ainda não escolhida." },
+] as const;
 const sequence: Record<string, string[]> = {
   army: ["CIN02", "CIN02", "CIN02", "CIN03", "CIN04"],
   air: ["AIR_CIN01", "AIR_CIN02", "AIR_CIN03"],

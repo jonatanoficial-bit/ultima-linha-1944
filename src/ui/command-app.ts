@@ -34,6 +34,14 @@ import { advanceNarrative, newNarrative, readingTime, type NarrativeAction } fro
 import { cinematicFor, cinematicUrl, CINEMATICS, narrativePlan, narrativeQuestion } from "../content/cinematics";
 import { CinematicStage } from "./cinematic-stage";
 import { GameAudio } from "./game-audio";
+import { AUDIO_ASSETS } from "../content/audio-assets";
+import { researchBriefFor } from "../content/research-briefs";
+import {
+  decodeCommandPreferences,
+  encodeCommandPreferences,
+  PREFERENCES_KEY,
+  type CommandPreferences,
+} from "./command-preferences";
 import "./cinematic.css";
 import { stations, sceneUrl, communicationScene, communicationRole } from "../content/stations";
 import { TurnDirector } from "./turn-director";
@@ -77,6 +85,7 @@ let story = newNarrative(),
   notice = "",
   sound = false;
 let commandProfile: CommandProfile = loadCommandProfile();
+let preferences: CommandPreferences = loadCommandPreferences();
 let modalAction: (() => void) | undefined,
   modalKind = "",
   lastFocus: HTMLElement | null = null;
@@ -86,6 +95,7 @@ const gameAudio = new GameAudio();
 let director: TurnDirector | undefined;
 let lastPlayback: { before: GameState; events: TurnEvent[] } | undefined;
 let playbackCue = -1;
+applyPresentationPreferences();
 const clearStoryTimer = () => { window.clearTimeout(storyTimer); storyTimer = undefined; };
 function scheduleStory() {
   clearStoryTimer();
@@ -148,6 +158,22 @@ function loadCommandProfile() {
 function saveCommandProfile() {
   try { localStorage.setItem(PROFILE_KEY, encodeCommandProfile(commandProfile)); }
   catch { notice = "O navegador não permitiu salvar o registro de requisições."; }
+}
+function loadCommandPreferences() {
+  try { return decodeCommandPreferences(localStorage.getItem(PREFERENCES_KEY)); }
+  catch { return decodeCommandPreferences(null); }
+}
+function applyPresentationPreferences() {
+  const root = document.documentElement;
+  root.dataset.commandScale = preferences.textScale;
+  root.dataset.commandContrast = preferences.contrast;
+  root.dataset.commandMotion = preferences.reduceMotion ? "reduced" : "standard";
+  root.dataset.commandCaptions = preferences.captions ? "on" : "off";
+}
+function saveCommandPreferences() {
+  try { localStorage.setItem(PREFERENCES_KEY, encodeCommandPreferences(preferences)); }
+  catch { notice = "O navegador não permitiu gravar suas preferências locais."; }
+  applyPresentationPreferences();
 }
 function activeSupportFor(branch = mission.campaignId): SupportPackage | undefined {
   return branch === "lab" ? undefined : supportById(commandProfile.deployedSupportByBranch[branch]);
@@ -463,7 +489,7 @@ function renderCinematic() {
     <div class="cinema-loading" role="status">Preparando cena…</div>
     <section class="cinema-caption" aria-label="Narrativa">
       <div class="scene-chapter"><span>${String(art.sequenceInCampaign).padStart(2, "0")} / 03</span><span>${esc(art.title)}</span></div>
-      ${summary ? `<h2>Antes de assumir o comando</h2><div class="cinema-recap">${storyTranscript(true)}</div>` : choosing ? `<span class="eyebrow">DECISÃO DE COMANDO · SEM LIMITE DE TEMPO</span><h2>${esc(narrativeQuestion[mission.campaignId])}</h2><div class="cinema-decisions">${mission.introChoices.map((c,i) => btn("begin", `<span class="choice-number">0${i+1}</span><span><strong>${esc(c.label)}</strong><span>${esc(c.description)}</span><small>${introEffect(c.adjustments)}</small></span>`, "decision", `data-id="${c.id}"`)).join("")}</div>` : `<p class="cinema-speaker">${esc(part.speaker)}</p><p class="cinema-dialogue" aria-live="polite">${esc(part.text)}</p>${seenChoice ? `<p class="cinema-choice-receipt">◆ ${esc(seenChoice.label)} · decisão registrada</p>` : ""}`}
+      ${summary ? `<h2>Antes de assumir o comando</h2><div class="cinema-recap">${storyTranscript(true)}</div>` : choosing ? `<span class="eyebrow">DECISÃO DE COMANDO · SEM LIMITE DE TEMPO</span><h2>${esc(narrativeQuestion[mission.campaignId])}</h2><div class="cinema-decisions">${mission.introChoices.map((c,i) => btn("begin", `<span class="choice-number">0${i+1}</span><span><strong>${esc(c.label)}</strong><span>${esc(c.description)}</span><small>${introEffect(c.adjustments)}</small></span>`, "decision", `data-id="${c.id}"`)).join("")}</div>` : preferences.captions ? `<p class="cinema-speaker">${esc(part.speaker)}</p><p class="cinema-dialogue" aria-live="polite">${esc(part.text)}</p>${seenChoice ? `<p class="cinema-choice-receipt">◆ ${esc(seenChoice.label)} · decisão registrada</p>` : ""}` : `<p class="cinema-captions-off">Legendas de cena desativadas. Você pode reativá-las em Acessibilidade e apresentação; as escolhas continuam sempre descritas em texto.</p>`}
     </section>
     <footer class="cinema-controls"><div>${btn("story-back", "← Anterior", "quiet", canBack ? "" : "disabled")}${!choosing && !summary ? btn("story-auto", storyAuto ? "Ⅱ Pausar leitura" : "▷ Auto", "quiet", `aria-pressed="${storyAuto}"`) + btn("story-skip", "Pular com resumo", "quiet") : ""}${!choosing && !summary ? btn("story-hide", storyHidden ? "Mostrar legendas" : "Ver cena", "quiet", `aria-pressed="${storyHidden}"`) : ""}</div><div class="cinema-progress" aria-label="Passagem ${story.index + 1} de ${d.prologue.length}">${d.prologue.map((_,i) => `<i class="${i <= story.index ? "seen" : ""}"></i>`).join("")}</div>${!choosing ? btn("story-next", summary ? (story.choice ? "Assumir o comando →" : "Tomar minha decisão →") : (story.index === d.prologue.length - 1 ? (story.choice ? "Assumir o comando →" : "Decidir →") : "Continuar →"), "cinema-next primary") : `<span class="cinema-hint">Escolha uma ordem para prosseguir</span>`}</footer>
   </main>`;
@@ -489,7 +515,7 @@ function render() {
     `url("${new URL(assetUrl(mission.visuals.backdrop), document.baseURI).href}")`,
   );
   if (screen === "menu") {
-    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar carreira", "primary") : ""}${hasSave("single") ? btn("continue-single", "Retomar missão avulsa") : ""}${btn("new", hasSave() ? "Nova carreira" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("single", "Missão avulsa · sem progresso")}${btn("dossier", "Dossiê de carreira")}${btn("quartermaster", "Apoio do QG")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p>${activeSupportFor() ? `<p class="assigned-support">QG designado · ${esc(activeSupportFor()!.title)}</p>` : ""}</aside><footer class="title-footer"><span>Campanhas locais · 5 registros manuais por frente</span><span>EDIÇÃO 0.12 / MEMÓRIA DE CARREIRA</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
+    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar carreira", "primary") : ""}${hasSave("single") ? btn("continue-single", "Retomar missão avulsa") : ""}${btn("new", hasSave() ? "Nova carreira" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("single", "Missão avulsa · sem progresso")}${btn("dossier", "Dossiê de carreira")}${btn("quartermaster", "Apoio do QG")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}${btn("settings", "Acessibilidade")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p>${activeSupportFor() ? `<p class="assigned-support">QG designado · ${esc(activeSupportFor()!.title)}</p>` : ""}</aside><footer class="title-footer"><span>Campanhas locais · 5 registros manuais por frente</span><span>EDIÇÃO 0.13 / PESQUISA E ACESSIBILIDADE</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
     app
       .querySelector(".title-actions")!
       .insertAdjacentHTML(
@@ -715,10 +741,41 @@ function guide() {
     `<ol class="report-list"><li>Atenda a comunicação prioritária e examine as consequências antes de responder.</li><li>Selecione uma formação à esquerda. Marque um destino no mapa ou pelas coordenadas do painel.</li><li>Distribua até três pontos de comando entre ordens, trabalhos, cuidados e chamadas.</li><li>Resolva o turno para executar deslocamentos, contatos e tarefas. Leia o relatório e decida novamente.</li></ol><p>A rota dourada é uma previsão. Bosques atrasam o movimento; terreno e cobertura afetam contatos. Inimigos fora da observação não aparecem. A partida nunca avança sozinha.</p><p><kbd>Esc</kbd> pausa · <kbd>R</kbd> rádio · <kbd>O</kbd> ordens · <kbd>J</kbd> diário · <kbd>Enter</kbd> abre a confirmação do próximo turno. <kbd>F</kbd> amplia o campo; <kbd>1–5</kbd> selecionam formações. No mapa, use as setas para marcar um destino.</p>`,
   );
 }
+function settings() {
+  modal(
+    "Acessibilidade e apresentação",
+    `<p class="quartermaster-lead">Estas preferências ficam somente neste dispositivo e não alteram a simulação, a carreira ou os salvamentos.</p><div class="settings-grid"><label class="setting-row"><span><strong>Tamanho da interface</strong><small>Amplia textos, botões e controles de comando.</small></span><select data-preference="textScale" aria-label="Tamanho da interface"><option value="normal" ${preferences.textScale === "normal" ? "selected" : ""}>Padrão</option><option value="large" ${preferences.textScale === "large" ? "selected" : ""}>Ampliado</option></select></label><label class="setting-row"><span><strong>Contraste reforçado</strong><small>Aumenta definição de texto, bordas e foco do teclado.</small></span><input data-preference="contrast" type="checkbox" ${preferences.contrast === "high" ? "checked" : ""}></label><label class="setting-row"><span><strong>Reduzir movimento</strong><small>Desativa transições e animações não essenciais.</small></span><input data-preference="reduceMotion" type="checkbox" ${preferences.reduceMotion ? "checked" : ""}></label><label class="setting-row"><span><strong>Legendas da narrativa</strong><small>O enredo é sempre textual; esta opção mantém as falas sobre as cenas.</small></span><input data-preference="captions" type="checkbox" ${preferences.captions ? "checked" : ""}></label></div><p class="micro">Teclado: <kbd>Esc</kbd> pausa · <kbd>R</kbd> rádio · <kbd>O</kbd> ordens · <kbd>J</kbd> diário · <kbd>F</kbd> foco no campo · <kbd>1–5</kbd> formações. Todo aviso decisivo também aparece em texto.</p>`,
+    btn("audio-plan", "Plano de áudio", "quiet") + btn("close", "Concluído", "primary"),
+    "settings",
+  );
+}
+function audioPlan() {
+  const rows = Object.values(AUDIO_ASSETS).map((asset) => `<article class="audio-manifest ${asset.src ? "delivered" : "pending"}"><span>${asset.src ? "◆ ENTREGUE" : "◇ PENDENTE"}</span><div><strong>${esc(asset.title)}</strong><small>Destino: public/${esc(asset.destination)}</small><p>${esc(asset.prompt)}</p></div></article>`).join("");
+  modal(
+    "Plano de áudio · entrega futura",
+    `<p class="quartermaster-lead">Nenhuma faixa inexistente foi simulada. Enquanto os arquivos não forem entregues, o jogo usa ambiente procedimental discreto, iniciado apenas pelo jogador. Ao colocar um OGG no destino indicado e registrar o caminho em <code>audio-assets.ts</code>, a reprodução usa o ganho e o comportamento já validados.</p><div class="audio-manifest-grid">${rows}</div>`,
+    btn("settings", "Voltar às preferências", "quiet") + btn("close", "Concluído", "primary"),
+    "audio-plan",
+  );
+}
+function research() {
+  const branch = mission.campaignId;
+  if (branch === "lab") return;
+  const brief = researchBriefFor(branch);
+  const facts = brief.confirmedFacts.length
+    ? `<div class="research-list"><h3>Confirmado nas fontes</h3><ul>${brief.confirmedFacts.map((fact) => `<li>${esc(fact)}</li>`).join("")}</ul></div>`
+    : "";
+  modal(
+    `Pesquisa de capítulo · ${brief.title}`,
+    `<p class="research-status ${brief.status}">${brief.status === "context-confirmed" ? "BASE HISTÓRICA CONFIRMADA · NÃO JOGÁVEL" : "CURADORIA ABERTA · NÃO JOGÁVEL"}</p><p class="quartermaster-lead">${esc(brief.summary)}</p>${facts}<div class="research-list"><h3>Portão obrigatório antes de publicar</h3><ul>${brief.requiredBeforePlay.map((item) => `<li>${esc(item)}</li>`).join("")}</ul></div><p class="source-card"><span>FONTE CONSULTADA</span><strong>${esc(brief.source.title)}</strong><small>${esc(brief.source.publisher)}</small><a href="${esc(brief.source.url)}" target="_blank" rel="noopener">Abrir fonte primária ↗</a></p><p class="micro">Este registro torna a pesquisa auditável; ele não desbloqueia um mapa vazio, uma promoção automática ou uma missão fictícia.</p>`,
+    btn("close", "Voltar", "primary"),
+    "research",
+  );
+}
 function history() {
   modal(
     "Carta e contexto histórico",
-    `${mission.campaignId === "army" ? `<p>Registro regional de situação de <strong>20 de dezembro de 1944</strong>, preservado pelos Arquivos Nacionais dos Estados Unidos. O mapa tático Cedar é a dramatização ficcional definida na Bíblia, com posições persistentes.</p><a href="${assetUrl({ file: "maps/bastogne-20-dec-1944.jpg" })}" target="_blank" rel="noopener"><img class="historical-map" src="${assetUrl({ file: "maps/bastogne-20-dec-1944.jpg" })}" alt="Carta histórica regional de Bastogne, 20 de dezembro de 1944. Abrir em resolução completa."></a><a href="https://catalog.archives.gov/id/152951359" target="_blank" rel="noopener">Consultar registro original · NARA</a>` : `<p>${esc(mission.operation!.mapNote)}</p><p>A Bíblia situa esta missão em 1944, mas não define uma base ou porto histórico real. A carta jogável preserva essa distinção.</p>`}<p class="micro">${esc(mission.historicalNotice)}</p>`,
+    `${mission.campaignId === "army" ? `<p>Registro regional de situação de <strong>20 de dezembro de 1944</strong>, preservado pelos Arquivos Nacionais dos Estados Unidos. O mapa tático Cedar é a dramatização ficcional definida na Bíblia, com posições persistentes.</p><a href="${assetUrl({ file: "maps/bastogne-20-dec-1944.jpg" })}" target="_blank" rel="noopener"><img class="historical-map" src="${assetUrl({ file: "maps/bastogne-20-dec-1944.jpg" })}" alt="Carta histórica regional de Bastogne, 20 de dezembro de 1944. Abrir em resolução completa."></a><a href="https://catalog.archives.gov/id/152951359" target="_blank" rel="noopener">Consultar registro original · NARA</a><a href="https://history.army.mil/portals/143/Images/Publications/catalog/7-8.pdf" target="_blank" rel="noopener">Contexto posterior · U.S. Army Center of Military History</a>` : `<p>${esc(mission.operation!.mapNote)}</p><p>A Bíblia situa esta missão em 1944, mas não define uma base ou porto histórico real. A carta jogável preserva essa distinção.</p>`}<p class="micro">${esc(mission.historicalNotice)}</p>`,
   );
 }
 function archive() {
@@ -737,15 +794,15 @@ function dossier() {
   const completed = record?.completedMissionIds.includes(mission.id);
   modal(
     `Dossiê de carreira · ${branchName[branch]}`,
-    `<p class="quartermaster-lead">A carreira guarda somente consequências realmente concluídas. Patente, medalhas e próximo capítulo permanecem dependentes de evento e conteúdo publicados — não são concedidos automaticamente.</p><div class="profile-strip"><span>EXPERIÊNCIA <b>${memory.xp}</b></span><span>AUTORIDADE <b>${memory.reputationCommand}</b></span><span>${esc(competence.title)}</span></div><div class="career-memory-grid"><article><span class="eyebrow">NOMEAÇÃO ATUAL</span><strong>${esc(memory.appointedCommand)}</strong><p>${esc(memory.rank)}</p><small>Confiança da cadeia: ${memory.relationships.commandTrust}/100 · relações registradas com ${memory.relationships.contacts.length} contato(s).</small></article><article><span class="eyebrow">AVALIAÇÃO PÓS-AÇÃO</span><strong>Humanidade ${memory.reputationHumanity} · Estado-maior ${memory.reputationStaff}</strong><p>${memory.scars.length ? esc(memory.scars.join(" · ")) : "Sem perda adicional consolidada no dossiê."}</p><small>${memory.medals.length ? `Condecorações: ${esc(memory.medals.join(", "))}` : "Nenhuma condecoração é atribuída sem evento próprio."}</small></article></div><div class="campaign-dossier"><article class="dossier-chapter ${completed ? "complete" : ""}"><span class="eyebrow">${completed ? "ARQUIVADO" : "EM OPERAÇÃO"}</span><h3>${esc(mission.title)}</h3><p>${esc(mission.subtitle)}</p><small>${completed ? "Resultado consolidado no diário de carreira." : "Capítulo publicado e disponível."}</small></article><article class="dossier-chapter future"><span class="eyebrow">EM PRODUÇÃO</span><h3>Próximo capítulo</h3><p>Estado de continuidade preservado: o próximo capítulo só será liberado com pesquisa, pacote jogável e QA completos.</p></article></div>${memory.unitRoster.length ? `<div class="section-label">FORMAÇÕES ENTREGUES AO PRÓXIMO CAPÍTULO</div><div class="career-roster">${memory.unitRoster.map((unit) => `<article class="${unit.status}"><span>${unit.status === "operational" ? "◆" : unit.status === "reduced" ? "◇" : "×"}</span><div><strong>${esc(unit.name)}</strong><small>${esc(unit.role)} · ${unit.capable} capazes</small></div></article>`).join("")}</div>` : ""}${history.length ? `<div class="section-label">REGISTRO DE DESFECHOS</div><div class="campaign-history">${history.slice().reverse().map((entry) => `<article><span class="eyebrow">${esc(entry.missionId)}</span><strong>${esc(entry.outcomeTitle)}</strong><p>${entry.capable} capazes · ${entry.wounded} feridos · ${entry.dead} mortos</p><small>${entry.decisions} decisões · ${entry.objectivesCompleted}/${entry.objectivesTotal} objetivos cumpridos</small></article>`).join("")}</div>` : `<p class="micro">Nenhum capítulo concluído nesta carreira. Os dados aparecerão após o relatório final.</p>`}`,
-    btn("close", "Voltar", "primary"),
+    `<p class="quartermaster-lead">A carreira guarda somente consequências realmente concluídas. Patente, medalhas e próximo capítulo permanecem dependentes de evento e conteúdo publicados — não são concedidos automaticamente.</p><div class="profile-strip"><span>EXPERIÊNCIA <b>${memory.xp}</b></span><span>AUTORIDADE <b>${memory.reputationCommand}</b></span><span>${esc(competence.title)}</span></div><div class="career-memory-grid"><article><span class="eyebrow">NOMEAÇÃO ATUAL</span><strong>${esc(memory.appointedCommand)}</strong><p>${esc(memory.rank)}</p><small>Confiança da cadeia: ${memory.relationships.commandTrust}/100 · relações registradas com ${memory.relationships.contacts.length} contato(s).</small></article><article><span class="eyebrow">AVALIAÇÃO PÓS-AÇÃO</span><strong>Humanidade ${memory.reputationHumanity} · Estado-maior ${memory.reputationStaff}</strong><p>${memory.scars.length ? esc(memory.scars.join(" · ")) : "Sem perda adicional consolidada no dossiê."}</p><small>${memory.medals.length ? `Condecorações: ${esc(memory.medals.join(", "))}` : "Nenhuma condecoração é atribuída sem evento próprio."}</small></article></div><div class="campaign-dossier"><article class="dossier-chapter ${completed ? "complete" : ""}"><span class="eyebrow">${completed ? "ARQUIVADO" : "EM OPERAÇÃO"}</span><h3>${esc(mission.title)}</h3><p>${esc(mission.subtitle)}</p><small>${completed ? "Resultado consolidado no diário de carreira." : "Capítulo publicado e disponível."}</small></article><article class="dossier-chapter future"><span class="eyebrow">EM PESQUISA</span><h3>${esc(researchBriefFor(branch).title)}</h3><p>${esc(researchBriefFor(branch).summary)}</p><small>Não libera mapa, unidades ou promoções até o pacote jogável e o QA estarem completos.</small></article></div>${memory.unitRoster.length ? `<div class="section-label">FORMAÇÕES ENTREGUES AO PRÓXIMO CAPÍTULO</div><div class="career-roster">${memory.unitRoster.map((unit) => `<article class="${unit.status}"><span>${unit.status === "operational" ? "◆" : unit.status === "reduced" ? "◇" : "×"}</span><div><strong>${esc(unit.name)}</strong><small>${esc(unit.role)} · ${unit.capable} capazes</small></div></article>`).join("")}</div>` : ""}${history.length ? `<div class="section-label">REGISTRO DE DESFECHOS</div><div class="campaign-history">${history.slice().reverse().map((entry) => `<article><span class="eyebrow">${esc(entry.missionId)}</span><strong>${esc(entry.outcomeTitle)}</strong><p>${entry.capable} capazes · ${entry.wounded} feridos · ${entry.dead} mortos</p><small>${entry.decisions} decisões · ${entry.objectivesCompleted}/${entry.objectivesTotal} objetivos cumpridos</small></article>`).join("")}</div>` : `<p class="micro">Nenhum capítulo concluído nesta carreira. Os dados aparecerão após o relatório final.</p>`}`,
+    btn("research", "Ver pesquisa do capítulo", "quiet") + btn("close", "Voltar", "primary"),
     "dossier",
   );
 }
 function pause() {
   modal(
     "Comando em espera",
-    `<p>O tempo avança apenas quando você resolve o turno. O autosave desta ${game!.runMode === "career" ? "carreira" : "missão avulsa"} é atualizado após cada decisão.</p><label>Volume do ambiente e efeitos <input id="audio-level" type="range" min="0" max="100" value="${Math.round(gameAudio.getVolume()*100)}" aria-label="Volume do áudio"></label><div class="pause-actions">${btn("manual-saves", "Registros manuais · 5")}${btn("guide", "Como comandar")}${btn("sound", sound ? "Desligar ambiente" : "Ligar ambiente", "quiet", `aria-pressed="${sound}"`)}${btn("export", "Exportar partida")}${btn("import", "Importar partida")}${btn("archive", "Arquivo de guerra")}${btn("menu", "Menu principal")}</div>`,
+    `<p>O tempo avança apenas quando você resolve o turno. O autosave desta ${game!.runMode === "career" ? "carreira" : "missão avulsa"} é atualizado após cada decisão.</p><label>Volume do ambiente e efeitos <input id="audio-level" type="range" min="0" max="100" value="${Math.round(gameAudio.getVolume()*100)}" aria-label="Volume do áudio"></label><div class="pause-actions">${btn("manual-saves", "Registros manuais · 5")}${btn("guide", "Como comandar")}${btn("settings", "Acessibilidade")}${btn("sound", sound ? "Desligar ambiente" : "Ligar ambiente", "quiet", `aria-pressed="${sound}"`)}${btn("export", "Exportar partida")}${btn("import", "Importar partida")}${btn("archive", "Arquivo de guerra")}${btn("menu", "Menu principal")}</div>`,
     btn("close", "Retomar operação", "primary"),
     "pause",
   );
@@ -771,6 +828,18 @@ function download() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 app.addEventListener('input', e => { const input=e.target as HTMLInputElement; if(input.id==='audio-level') gameAudio.setVolume(Number(input.value)/100); });
+app.addEventListener("change", (e) => {
+  const control = e.target as HTMLInputElement | HTMLSelectElement;
+  const preference = control.dataset.preference as keyof CommandPreferences | undefined;
+  if (!preference) return;
+  const value = control instanceof HTMLInputElement && control.type === "checkbox" ? control.checked : control.value;
+  if (preference === "textScale" && (value === "normal" || value === "large")) preferences = { ...preferences, textScale: value };
+  if (preference === "contrast") preferences = { ...preferences, contrast: value ? "high" : "standard" };
+  if (preference === "reduceMotion") preferences = { ...preferences, reduceMotion: Boolean(value) };
+  if (preference === "captions") preferences = { ...preferences, captions: Boolean(value) };
+  saveCommandPreferences();
+  notice = "Preferência aplicada neste dispositivo.";
+});
 app.addEventListener("submit", (e) => {
   if (director) { e.preventDefault(); return; }
   if ((e.target as HTMLElement).id !== "coordinates") return;
@@ -837,6 +906,18 @@ app.addEventListener("click", async (e) => {
   }
   if (action === "dossier") {
     dossier();
+    return;
+  }
+  if (action === "research") {
+    research();
+    return;
+  }
+  if (action === "settings") {
+    settings();
+    return;
+  }
+  if (action === "audio-plan") {
+    audioPlan();
     return;
   }
   if (action === "purchase-support") {

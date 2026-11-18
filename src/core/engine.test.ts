@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getMission } from "../content/missions";
 import { supportById } from "../content/supports";
 import { createInitialState, reduce } from "./engine";
-import { createCommandProfile, settleMission } from "./progression";
+import { careerMemoryFor, createCommandProfile, purchaseSupport, settleMission } from "./progression";
 import { pendingEvent } from "./operations-engine";
 
 const mission = getMission("bastogne_east_cedar_1944");
@@ -79,7 +79,13 @@ describe("mission engine", () => {
     };
     const first = settleMission(createCommandProfile(), closed);
     expect(first.reward?.reputation).toBeGreaterThan(0);
-    expect(first.profile.xp).toBeGreaterThan(0);
+    expect(first.profile.campaigns.army?.memory?.xp).toBeGreaterThan(0);
+    expect(first.profile.campaigns.army?.memory?.rank).toBe(
+      closed.operation!.definition.rank,
+    );
+    expect(first.profile.campaigns.army?.memory?.unitRoster).toHaveLength(
+      closed.operation!.units.length,
+    );
     expect(first.profile.campaigns.army?.completedMissionIds).toContain(mission.id);
     expect(first.profile.campaigns.army?.history[0]).toMatchObject({
       missionId: mission.id,
@@ -88,6 +94,12 @@ describe("mission engine", () => {
     const second = settleMission(first.profile, closed);
     expect(second.reward).toBeUndefined();
     expect(second.profile).toEqual(first.profile);
+    const replay = settleMission(first.profile, {
+      ...closed,
+      seed: "reward-seed-new-run",
+    });
+    expect(replay.reward).toBeUndefined();
+    expect(replay.profile).toEqual(first.profile);
   });
 
   it("keeps a standalone mission out of reputation and career history", () => {
@@ -110,5 +122,21 @@ describe("mission engine", () => {
     const result = settleMission(profile, closed);
     expect(result.reward).toBeUndefined();
     expect(result.profile).toEqual(profile);
+  });
+
+  it("keeps authority per branch and does not spend it on a requisition", () => {
+    const closed = {
+      ...createInitialState(mission, "branch-authority", "leaders"),
+      phase: "ended" as const,
+      outcome: { id: "hold" as const, title: "Linha", description: "Teste" },
+    };
+    const completed = settleMission(createCommandProfile(), closed).profile;
+    const before = careerMemoryFor(completed, "army").reputationCommand;
+    const jeep = supportById("army_jeep");
+    if (!jeep) throw new Error("Expected Jeep support");
+    const requisitioned = purchaseSupport(completed, jeep);
+    expect(requisitioned).toBeDefined();
+    expect(careerMemoryFor(requisitioned!, "army").reputationCommand).toBe(before);
+    expect(careerMemoryFor(requisitioned!, "air").xp).toBe(0);
   });
 });

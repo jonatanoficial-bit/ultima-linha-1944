@@ -88,18 +88,56 @@ export interface CampaignMissionRecord {
   objectivesTotal: number;
 }
 
+/** A persistent formation snapshot; individuals are never invented from aggregate mission data. */
+export interface FormationLedgerEntry {
+  id: string;
+  name: string;
+  role: string;
+  capable: number;
+  status: "operational" | "reduced" | "lost";
+}
+
+export interface CareerTimelineEntry {
+  missionId: string;
+  outcomeTitle: string;
+  startedAt: string;
+  turns: number;
+  decisions: number;
+}
+
+/**
+ * Data handed to a future, verified chapter. It records the result of play,
+ * but never fabricates a promotion, medal, replacement or mission that has
+ * not been authored and researched yet.
+ */
+export interface BranchCareerMemory {
+  xp: number;
+  reputationCommand: number;
+  reputationHumanity: number;
+  reputationStaff: number;
+  rank: string;
+  appointedCommand: string;
+  unitRoster: FormationLedgerEntry[];
+  lossLedger: { capable: number; wounded: number; missing: number; dead: number };
+  relationships: { commandTrust: number; contacts: string[] };
+  scars: string[];
+  medals: string[];
+  decisionFlags: string[];
+  timeline: CareerTimelineEntry[];
+  nextMissionStatus: "awaiting-production";
+}
+
 export interface CampaignRecord {
   completedMissionIds: string[];
   history: CampaignMissionRecord[];
   totalDecisions: number;
   losses: number;
+  memory?: BranchCareerMemory;
 }
 
 /** Persistent, browser-local commander progression. No account or network is required. */
 export interface CommandProfile {
-  schemaVersion: "1.1.0";
-  reputation: number;
-  xp: number;
+  schemaVersion: "1.2.0";
   unlockedSupportIds: SupportId[];
   deployedSupportByBranch: Partial<Record<Exclude<BranchId, "lab">, SupportId>>;
   settledSeeds: string[];

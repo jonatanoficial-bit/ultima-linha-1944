@@ -16,16 +16,43 @@ describe("command profile persistence", () => {
 
   it("rejects foreign or malformed stored profiles safely", () => {
     expect(decodeCommandProfile('{"schemaVersion":"1.0.0","reputation":-2}')).toEqual(createCommandProfile());
-    expect(decodeCommandProfile('{not json')).toEqual(createCommandProfile());
+    expect(decodeCommandProfile("{not json")).toEqual(createCommandProfile());
   });
 
-  it("migrates a valid v1 profile without losing requisitions", () => {
-    const current = createCommandProfile();
-    const legacy = { ...current, schemaVersion: "1.0.0" } as Record<string, unknown>;
-    delete legacy.campaigns;
+  it("migrates a v1.1 career into isolated branch memory", () => {
+    const legacy = {
+      schemaVersion: "1.1.0",
+      reputation: 67,
+      xp: 122,
+      unlockedSupportIds: [],
+      deployedSupportByBranch: {},
+      settledSeeds: ["legacy-seed"],
+      campaigns: {
+        army: {
+          completedMissionIds: ["bastogne_east_cedar_1944"],
+          history: [{
+            missionId: "bastogne_east_cedar_1944",
+            outcomeId: "hold",
+            outcomeTitle: "Linha preservada",
+            capable: 66,
+            wounded: 19,
+            missing: 0,
+            dead: 0,
+            decisions: 12,
+            objectivesCompleted: 3,
+            objectivesTotal: 3,
+          }],
+          totalDecisions: 12,
+          losses: 0,
+        },
+      },
+    };
     const migrated = decodeCommandProfile(JSON.stringify(legacy));
-    expect(migrated.schemaVersion).toBe("1.1.0");
-    expect(migrated.reputation).toBe(current.reputation);
-    expect(migrated.campaigns).toEqual({});
+    expect(migrated.schemaVersion).toBe("1.2.0");
+    expect(migrated.campaigns.army?.memory).toMatchObject({
+      xp: 122,
+      reputationCommand: 67,
+    });
+    expect(migrated.campaigns.air?.memory).toBeUndefined();
   });
 });

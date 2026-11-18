@@ -53,7 +53,7 @@ import { unitCardAssetUrl, visualForUnit } from "../content/unit-visuals";
 import { topDownSpriteUrl } from "../content/unit-visuals";
 import { aircraftInventory } from "../content/operational-inventory";
 import { supportById, supportsForBranch } from "../content/supports";
-import { deploySupport, purchaseSupport, rankForXp, settleMission } from "../core/progression";
+import { careerMemoryFor, competenceForXp, deploySupport, purchaseSupport, settleMission } from "../core/progression";
 import { decodeCommandProfile, encodeCommandProfile, PROFILE_KEY } from "../core/profile-persistence";
 
 const app = document.querySelector<HTMLElement>("#app")!;
@@ -151,6 +151,10 @@ function saveCommandProfile() {
 }
 function activeSupportFor(branch = mission.campaignId): SupportPackage | undefined {
   return branch === "lab" ? undefined : supportById(commandProfile.deployedSupportByBranch[branch]);
+}
+function careerMemory(branch = mission.campaignId) {
+  if (branch === "lab") return undefined;
+  return careerMemoryFor(commandProfile, branch);
 }
 function activeMissionSupport(): SupportPackage | undefined {
   return game ? supportById(game.deployedSupportId) : undefined;
@@ -407,7 +411,7 @@ function showOutcome() {
   saveCommandProfile();
   modal(
     game!.outcome!.title,
-    `<p class="dialogue">${esc(game!.outcome!.description)}</p><p>${game!.personnel.capable} capazes · ${game!.personnel.wounded} feridos · ${game!.personnel.missing} desaparecidos · ${game!.personnel.dead} mortos</p>${missionBoard()}<p>${game!.operation!.decisions.length} decisões registradas. O diário e os estoques permanecem disponíveis.</p>${game!.runMode === "single" ? `<p class="effect-preview">MISSÃO AVULSA · resultado preservado apenas neste registro; nenhuma experiência, reputação ou dossiê foi alterado.</p>` : settlement.reward ? `<p class="effect-preview">RECOMPENSA REGISTRADA · +${settlement.reward.reputation} reputação · +${settlement.reward.xp} experiência</p>` : ""}`,
+    `<p class="dialogue">${esc(game!.outcome!.description)}</p><p>${game!.personnel.capable} capazes · ${game!.personnel.wounded} feridos · ${game!.personnel.missing} desaparecidos · ${game!.personnel.dead} mortos</p>${missionBoard()}<p>${game!.operation!.decisions.length} decisões registradas. O diário e os estoques permanecem disponíveis.</p>${game!.runMode === "single" ? `<p class="effect-preview">MISSÃO AVULSA · resultado preservado apenas neste registro; nenhuma experiência, autoridade ou dossiê foi alterado.</p>` : settlement.reward ? `<p class="effect-preview">RELATÓRIO CONSOLIDADO · índice ${settlement.reward.score} · +${settlement.reward.reputation} autoridade · +${settlement.reward.xp} experiência</p>` : ""}`,
     btn("export", "Exportar registro") +
       btn("close", "Examinar o campo", "primary"),
     "outcome",
@@ -485,7 +489,7 @@ function render() {
     `url("${new URL(assetUrl(mission.visuals.backdrop), document.baseURI).href}")`,
   );
   if (screen === "menu") {
-    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar carreira", "primary") : ""}${hasSave("single") ? btn("continue-single", "Retomar missão avulsa") : ""}${btn("new", hasSave() ? "Nova carreira" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("single", "Missão avulsa · sem progresso")}${btn("dossier", "Dossiê de carreira")}${btn("quartermaster", "Apoio do QG")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p>${activeSupportFor() ? `<p class="assigned-support">QG designado · ${esc(activeSupportFor()!.title)}</p>` : ""}</aside><footer class="title-footer"><span>Campanhas locais · 5 registros manuais por frente</span><span>EDIÇÃO 0.11 / CARREIRA E COMANDO</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
+    app.innerHTML = `<main class="title-screen"><div class="brandline">VALE GAMES <span>DRAMA TÁTICO · 1944</span></div><section class="title-content"><p class="eyebrow">QUANDO O COMANDO CAI, A RESPONSABILIDADE FICA.</p><h1>ÚLTIMA<br>LINHA<span>1944</span></h1><nav class="branch-picker" aria-label="Carreira">${missions.map((m) => btn("branch", branchName[m.campaignId], m.id === mission.id ? "active" : "", `data-id="${m.id}" aria-pressed="${m.id === mission.id}"`)).join("")}</nav><p class="campaign-title">${mission.operation!.title}</p><p class="campaign-summary">${esc(mission.operationalGoal)}</p><div class="title-actions">${hasSave() ? btn("continue", "Continuar carreira", "primary") : ""}${hasSave("single") ? btn("continue-single", "Retomar missão avulsa") : ""}${btn("new", hasSave() ? "Nova carreira" : "Assumir o comando", hasSave() ? "" : "primary")}${btn("single", "Missão avulsa · sem progresso")}${btn("dossier", "Dossiê de carreira")}${btn("quartermaster", "Apoio do QG")}${btn("archive", "Arquivo de guerra")}${btn("guide", "Como comandar")}</div></section><aside class="mission-stamp"><span class="eyebrow">ORDENS SELADAS · ${mission.id.split("_")[0].toUpperCase()}</span><strong>${esc(mission.operation!.commander)}</strong><span>${esc(mission.operation!.rank)}</span><p>${esc(mission.subtitle)}</p>${activeSupportFor() ? `<p class="assigned-support">QG designado · ${esc(activeSupportFor()!.title)}</p>` : ""}</aside><footer class="title-footer"><span>Campanhas locais · 5 registros manuais por frente</span><span>EDIÇÃO 0.12 / MEMÓRIA DE CARREIRA</span></footer>${notice ? `<div class="toast" role="status">${esc(notice)}</div>` : ""}</main>`;
     app
       .querySelector(".title-actions")!
       .insertAdjacentHTML(
@@ -578,19 +582,21 @@ function supportEffects(support: SupportPackage) {
 function supportCard(support: SupportPackage) {
   const unlocked = commandProfile.unlockedSupportIds.includes(support.id);
   const deployed = activeSupportFor()?.id === support.id;
+  const authority = careerMemory(support.branch)!.reputationCommand;
   const action = unlocked
     ? btn("deploy-support", deployed ? "Designado para a próxima operação" : "Designar para a próxima operação", deployed ? "quiet" : "primary", `data-id="${support.id}" ${deployed ? "disabled" : ""}`)
-    : btn("purchase-support", `Autorizar · ${support.requestCost} reputação`, "primary", `data-id="${support.id}" ${commandProfile.reputation < support.requestCost ? "disabled" : ""}`);
+    : btn("purchase-support", `Requer autoridade ${support.requestCost}`, "primary", `data-id="${support.id}" ${authority < support.requestCost ? "disabled" : ""}`);
   return `<article class="support-card ${deployed ? "assigned" : ""}"><img src="${assetUrl(approvedAsset(support.assetId))}" alt="Arte de referência: ${esc(support.title)}"><div><span class="eyebrow">${deployed ? "DESIGNADO" : unlocked ? "DISPONÍVEL" : "REQUISIÇÃO"}</span><h3>${esc(support.title)}</h3><p>${esc(support.description)}</p><small>${esc(supportEffects(support))}</small></div><div class="support-card-action">${action}</div></article>`;
 }
 function quartermaster() {
   const branch = mission.campaignId;
   if (branch === "lab") return;
   const active = activeSupportFor();
-  const rank = rankForXp(commandProfile.xp);
+  const memory = careerMemory(branch)!;
+  const competence = competenceForXp(memory.xp);
   modal(
     `Requisições do QG · ${branchName[branch]}`,
-    `<p class="quartermaster-lead">Apoios são confirmados antes do prólogo e seus efeitos entram no estado inicial da missão. Eles <strong>não</strong> criam uma unidade física no mapa sem dados próprios da operação.</p><div class="profile-strip"><span>REPUTAÇÃO <b>${commandProfile.reputation}</b></span><span>EXPERIÊNCIA <b>${commandProfile.xp}</b></span><span>${esc(rank.title)}</span></div><div class="support-cards">${supportsForBranch(branch).map(supportCard).join("")}</div>${active ? `<div class="support-clear"><span>Designado: <strong>${esc(active.title)}</strong></span>${btn("withdraw-support", "Retirar designação", "quiet")}</div>` : ""}`,
+    `<p class="quartermaster-lead">Apoios são confirmados antes do prólogo e seus efeitos entram no estado inicial da missão. Eles <strong>não</strong> criam uma unidade física no mapa sem dados próprios da operação. Autoridade libera requisições; ela não é uma moeda fictícia consumida.</p><div class="profile-strip"><span>AUTORIDADE <b>${memory.reputationCommand}</b></span><span>EXPERIÊNCIA <b>${memory.xp}</b></span><span>${esc(competence.title)}</span></div><div class="support-cards">${supportsForBranch(branch).map(supportCard).join("")}</div>${active ? `<div class="support-clear"><span>Designado: <strong>${esc(active.title)}</strong></span>${btn("withdraw-support", "Retirar designação", "quiet")}</div>` : ""}`,
     btn("close", "Voltar", "primary"),
     "quartermaster",
   );
@@ -725,11 +731,13 @@ function dossier() {
   const branch = mission.campaignId;
   if (branch === "lab") return;
   const record = commandProfile.campaigns[branch];
+  const memory = careerMemory(branch)!;
+  const competence = competenceForXp(memory.xp);
   const history = record?.history ?? [];
   const completed = record?.completedMissionIds.includes(mission.id);
   modal(
     `Dossiê de carreira · ${branchName[branch]}`,
-    `<p class="quartermaster-lead">A carreira guarda apenas consequências realmente concluídas: resultado, efetivo, decisões e objetivos. O próximo capítulo só será liberado quando existir um pacote jogável completo.</p><div class="profile-strip"><span>CAPÍTULOS CONCLUÍDOS <b>${record?.completedMissionIds.length ?? 0}</b></span><span>DECISÕES DE COMANDO <b>${record?.totalDecisions ?? 0}</b></span><span>PERDAS REGISTRADAS <b>${record?.losses ?? 0}</b></span></div><div class="campaign-dossier"><article class="dossier-chapter ${completed ? "complete" : ""}"><span class="eyebrow">${completed ? "ARQUIVADO" : "EM OPERAÇÃO"}</span><h3>${esc(mission.title)}</h3><p>${esc(mission.subtitle)}</p><small>${completed ? "Resultado consolidado no diário de carreira." : "Capítulo publicado e disponível."}</small></article><article class="dossier-chapter future"><span class="eyebrow">EM PRODUÇÃO</span><h3>Próximo capítulo</h3><p>A campanha não anuncia uma missão vazia. Novas operações entrarão somente com dados, eventos, objetivos e QA completos.</p></article></div>${history.length ? `<div class="section-label">REGISTRO DE DESFECHOS</div><div class="campaign-history">${history.slice().reverse().map((entry) => `<article><span class="eyebrow">${esc(entry.missionId)}</span><strong>${esc(entry.outcomeTitle)}</strong><p>${entry.capable} capazes · ${entry.wounded} feridos · ${entry.dead} mortos</p><small>${entry.decisions} decisões · ${entry.objectivesCompleted}/${entry.objectivesTotal} objetivos cumpridos</small></article>`).join("")}</div>` : `<p class="micro">Nenhum capítulo concluído nesta carreira. Os dados aparecerão após o relatório final.</p>`}`,
+    `<p class="quartermaster-lead">A carreira guarda somente consequências realmente concluídas. Patente, medalhas e próximo capítulo permanecem dependentes de evento e conteúdo publicados — não são concedidos automaticamente.</p><div class="profile-strip"><span>EXPERIÊNCIA <b>${memory.xp}</b></span><span>AUTORIDADE <b>${memory.reputationCommand}</b></span><span>${esc(competence.title)}</span></div><div class="career-memory-grid"><article><span class="eyebrow">NOMEAÇÃO ATUAL</span><strong>${esc(memory.appointedCommand)}</strong><p>${esc(memory.rank)}</p><small>Confiança da cadeia: ${memory.relationships.commandTrust}/100 · relações registradas com ${memory.relationships.contacts.length} contato(s).</small></article><article><span class="eyebrow">AVALIAÇÃO PÓS-AÇÃO</span><strong>Humanidade ${memory.reputationHumanity} · Estado-maior ${memory.reputationStaff}</strong><p>${memory.scars.length ? esc(memory.scars.join(" · ")) : "Sem perda adicional consolidada no dossiê."}</p><small>${memory.medals.length ? `Condecorações: ${esc(memory.medals.join(", "))}` : "Nenhuma condecoração é atribuída sem evento próprio."}</small></article></div><div class="campaign-dossier"><article class="dossier-chapter ${completed ? "complete" : ""}"><span class="eyebrow">${completed ? "ARQUIVADO" : "EM OPERAÇÃO"}</span><h3>${esc(mission.title)}</h3><p>${esc(mission.subtitle)}</p><small>${completed ? "Resultado consolidado no diário de carreira." : "Capítulo publicado e disponível."}</small></article><article class="dossier-chapter future"><span class="eyebrow">EM PRODUÇÃO</span><h3>Próximo capítulo</h3><p>Estado de continuidade preservado: o próximo capítulo só será liberado com pesquisa, pacote jogável e QA completos.</p></article></div>${memory.unitRoster.length ? `<div class="section-label">FORMAÇÕES ENTREGUES AO PRÓXIMO CAPÍTULO</div><div class="career-roster">${memory.unitRoster.map((unit) => `<article class="${unit.status}"><span>${unit.status === "operational" ? "◆" : unit.status === "reduced" ? "◇" : "×"}</span><div><strong>${esc(unit.name)}</strong><small>${esc(unit.role)} · ${unit.capable} capazes</small></div></article>`).join("")}</div>` : ""}${history.length ? `<div class="section-label">REGISTRO DE DESFECHOS</div><div class="campaign-history">${history.slice().reverse().map((entry) => `<article><span class="eyebrow">${esc(entry.missionId)}</span><strong>${esc(entry.outcomeTitle)}</strong><p>${entry.capable} capazes · ${entry.wounded} feridos · ${entry.dead} mortos</p><small>${entry.decisions} decisões · ${entry.objectivesCompleted}/${entry.objectivesTotal} objetivos cumpridos</small></article>`).join("")}</div>` : `<p class="micro">Nenhum capítulo concluído nesta carreira. Os dados aparecerão após o relatório final.</p>`}`,
     btn("close", "Voltar", "primary"),
     "dossier",
   );
